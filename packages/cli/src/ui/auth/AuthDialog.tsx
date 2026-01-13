@@ -72,6 +72,11 @@ export function AuthDialog({
       key: AuthType.USE_GEMINI,
     },
     {
+      label: 'Use GLM API Key',
+      value: AuthType.USE_GLM,
+      key: AuthType.USE_GLM,
+    },
+    {
       label: 'Vertex AI',
       value: AuthType.USE_VERTEX_AI,
       key: AuthType.USE_VERTEX_AI,
@@ -102,6 +107,9 @@ export function AuthDialog({
       return item.value === defaultAuthType;
     }
 
+    if (process.env['ZAI_API_KEY'] || process.env['GLM_API_KEY']) {
+      return item.value === AuthType.USE_GLM;
+    }
     if (process.env['GEMINI_API_KEY']) {
       return item.value === AuthType.USE_GEMINI;
     }
@@ -140,6 +148,18 @@ export function AuthDialog({
 
         if (authType === AuthType.USE_GEMINI) {
           if (process.env['GEMINI_API_KEY'] !== undefined) {
+            setAuthState(AuthState.Unauthenticated);
+            return;
+          } else {
+            setAuthState(AuthState.AwaitingApiKeyInput);
+            return;
+          }
+        }
+        if (authType === AuthType.USE_GLM) {
+          if (
+            process.env['ZAI_API_KEY'] !== undefined ||
+            process.env['GLM_API_KEY'] !== undefined
+          ) {
             setAuthState(AuthState.Unauthenticated);
             return;
           } else {

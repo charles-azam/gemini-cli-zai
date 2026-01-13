@@ -16,6 +16,13 @@ import { getErrorMessage } from '@google/gemini-cli-core';
 import { AuthState } from '../types.js';
 import { validateAuthMethod } from '../../config/auth.js';
 
+function getEnvApiKey(authType: AuthType): string | undefined {
+  if (authType === AuthType.USE_GLM) {
+    return process.env['ZAI_API_KEY'] ?? process.env['GLM_API_KEY'];
+  }
+  return process.env['GEMINI_API_KEY'];
+}
+
 export function validateAuthMethodWithSettings(
   authType: AuthType,
   settings: LoadedSettings,
@@ -28,7 +35,7 @@ export function validateAuthMethodWithSettings(
     return null;
   }
   // If using Gemini API key, we don't validate it here as we might need to prompt for it.
-  if (authType === AuthType.USE_GEMINI) {
+  if (authType === AuthType.USE_GEMINI || authType === AuthType.USE_GLM) {
     return null;
   }
   return validateAuthMethod(authType);
@@ -43,6 +50,9 @@ export const useAuthCommand = (settings: LoadedSettings, config: Config) => {
   const [apiKeyDefaultValue, setApiKeyDefaultValue] = useState<
     string | undefined
   >(undefined);
+  const [apiKeyAuthType, setApiKeyAuthType] = useState<AuthType>(
+    AuthType.USE_GEMINI,
+  );
 
   const onAuthError = useCallback(
     (error: string | null) => {
@@ -54,24 +64,31 @@ export const useAuthCommand = (settings: LoadedSettings, config: Config) => {
     [setAuthError, setAuthState],
   );
 
-  const reloadApiKey = useCallback(async () => {
-    const envKey = process.env['GEMINI_API_KEY'];
-    if (envKey !== undefined) {
-      setApiKeyDefaultValue(envKey);
-      return envKey;
-    }
+  const reloadApiKey = useCallback(
+    async (authType: AuthType = AuthType.USE_GEMINI) => {
+      const envKey = getEnvApiKey(authType);
+      if (envKey !== undefined) {
+        setApiKeyDefaultValue(envKey);
+        setApiKeyAuthType(authType);
+        return envKey;
+      }
 
-    const storedKey = (await loadApiKey()) ?? '';
-    setApiKeyDefaultValue(storedKey);
-    return storedKey;
-  }, []);
+      const storedKey = (await loadApiKey(authType)) ?? '';
+      setApiKeyDefaultValue(storedKey);
+      setApiKeyAuthType(authType);
+      return storedKey;
+    },
+    [],
+  );
 
   useEffect(() => {
     if (authState === AuthState.AwaitingApiKeyInput) {
       // eslint-disable-next-line @typescript-eslint/no-floating-promises
-      reloadApiKey();
+      const targetAuthType =
+        settings.merged.security?.auth?.selectedType ?? AuthType.USE_GEMINI;
+      reloadApiKey(targetAuthType);
     }
-  }, [authState, reloadApiKey]);
+  }, [authState, reloadApiKey, settings.merged.security?.auth?.selectedType]);
 
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-floating-promises
@@ -82,7 +99,11 @@ export const useAuthCommand = (settings: LoadedSettings, config: Config) => {
 
       const authType = settings.merged.security?.auth?.selectedType;
       if (!authType) {
-        if (process.env['GEMINI_API_KEY']) {
+        if (process.env['ZAI_API_KEY'] || process.env['GLM_API_KEY']) {
+          onAuthError(
+            'Existing API key detected (ZAI_API_KEY). Select "GLM API Key" option to use it.',
+          );
+        } else if (process.env['GEMINI_API_KEY']) {
           onAuthError(
             'Existing API key detected (GEMINI_API_KEY). Select "Gemini API Key" option to use it.',
           );
@@ -93,7 +114,13 @@ export const useAuthCommand = (settings: LoadedSettings, config: Config) => {
       }
 
       if (authType === AuthType.USE_GEMINI) {
-        const key = await reloadApiKey(); // Use the unified function
+        const key = await reloadApiKey(AuthType.USE_GEMINI);
+        if (!key) {
+          setAuthState(AuthState.AwaitingApiKeyInput);
+          return;
+        }
+      } else if (authType === AuthType.USE_GLM) {
+        const key = await reloadApiKey(AuthType.USE_GLM);
         if (!key) {
           setAuthState(AuthState.AwaitingApiKeyInput);
           return;
@@ -144,6 +171,7 @@ export const useAuthCommand = (settings: LoadedSettings, config: Config) => {
     authError,
     onAuthError,
     apiKeyDefaultValue,
+     apiKeyAuthType,
     reloadApiKey,
   };
 };
