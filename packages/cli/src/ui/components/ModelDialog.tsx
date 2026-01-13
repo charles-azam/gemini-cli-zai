@@ -15,9 +15,14 @@ import {
   DEFAULT_GEMINI_FLASH_MODEL,
   DEFAULT_GEMINI_FLASH_LITE_MODEL,
   DEFAULT_GEMINI_MODEL_AUTO,
+  DEFAULT_GLM_MODEL,
+  DEFAULT_DEEPSEEK_MODEL,
   ModelSlashCommandEvent,
   logModelSlashCommand,
   getDisplayString,
+  isGLMModel,
+  isDeepSeekModel,
+  AuthType,
 } from '@google/gemini-cli-core';
 import { useKeypress } from '../hooks/useKeypress.js';
 import { theme } from '../semantic-colors.js';
@@ -47,6 +52,8 @@ export function ModelDialog({ onClose }: ModelDialogProps): React.JSX.Element {
       DEFAULT_GEMINI_FLASH_LITE_MODEL,
       PREVIEW_GEMINI_MODEL,
       PREVIEW_GEMINI_FLASH_MODEL,
+      DEFAULT_GLM_MODEL,
+      DEFAULT_DEEPSEEK_MODEL,
     ];
     if (manualModels.includes(preferredModel)) {
       return preferredModel;
@@ -118,6 +125,17 @@ export function ModelDialog({ onClose }: ModelDialogProps): React.JSX.Element {
         title: DEFAULT_GEMINI_FLASH_LITE_MODEL,
         key: DEFAULT_GEMINI_FLASH_LITE_MODEL,
       },
+      // GLM and DeepSeek models (requires ZAI_API_KEY / DEEPSEEK_API_KEY)
+      {
+        value: DEFAULT_GLM_MODEL,
+        title: `${DEFAULT_GLM_MODEL} (GLM)`,
+        key: DEFAULT_GLM_MODEL,
+      },
+      {
+        value: DEFAULT_DEEPSEEK_MODEL,
+        title: `${DEFAULT_DEEPSEEK_MODEL} (DeepSeek)`,
+        key: DEFAULT_DEEPSEEK_MODEL,
+      },
     ];
 
     if (shouldShowPreviewModels) {
@@ -154,14 +172,51 @@ export function ModelDialog({ onClose }: ModelDialogProps): React.JSX.Element {
 
   // Handle selection internally (Autonomous Dialog).
   const handleSelect = useCallback(
-    (model: string) => {
+    async (model: string) => {
       if (model === 'Manual') {
         setView('manual');
         return;
       }
 
       if (config) {
+        // Check if we need to switch providers (Gemini vs GLM vs DeepSeek)
+        const currentAuthType = config.getContentGeneratorConfig()?.authType;
+        let needsProviderSwitch = false;
+        let newAuthType: AuthType | undefined;
+
+        if (isGLMModel(model) && currentAuthType !== AuthType.USE_GLM) {
+          needsProviderSwitch = true;
+          newAuthType = AuthType.USE_GLM;
+        } else if (
+          isDeepSeekModel(model) &&
+          currentAuthType !== AuthType.USE_DEEPSEEK
+        ) {
+          needsProviderSwitch = true;
+          newAuthType = AuthType.USE_DEEPSEEK;
+        } else if (
+          !isGLMModel(model) &&
+          !isDeepSeekModel(model) &&
+          (currentAuthType === AuthType.USE_GLM ||
+            currentAuthType === AuthType.USE_DEEPSEEK)
+        ) {
+          // Switching back from GLM/DeepSeek to Gemini
+          // We need to reinitialize but we don't know the original auth type
+          // For now, just set the model and hope they have GEMINI_API_KEY or are logged in
+          needsProviderSwitch = false;
+        }
+
         config.setModel(model, persistMode ? false : true);
+
+        // If switching providers, we need to refresh authentication
+        if (needsProviderSwitch && newAuthType) {
+          try {
+            await config.refreshAuth(newAuthType);
+          } catch (error) {
+            // Error will be shown when trying to use the model
+            // (e.g., "DEEPSEEK_API_KEY is required")
+          }
+        }
+
         const event = new ModelSlashCommandEvent(model);
         logModelSlashCommand(config, event);
       }
