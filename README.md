@@ -174,7 +174,24 @@ export GEMINI_API_KEY="YOUR_API_KEY"
 gemini
 ```
 
-### Option 3: Vertex AI
+### Option 3: GLM API Key
+
+**✨ Best for:** Developers benchmarking GLM 4.7 or working with the Z.AI coding
+endpoint
+
+**Benefits:**
+
+- **Reasoning traces**: Streams GLM "thinking" output into the UI
+- **OpenAI-compatible**: Uses the familiar chat/completions format
+- **Simple setup**: Just provide your Z.AI API key
+
+```bash
+# Get your key from https://docs.z.ai/guides/llm/glm-4.7
+export ZAI_API_KEY="YOUR_API_KEY"
+gemini
+```
+
+### Option 4: Vertex AI
 
 **✨ Best for:** Enterprise teams and production workloads
 

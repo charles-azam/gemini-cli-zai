@@ -29,7 +29,7 @@ vi.mock('@google/gemini-cli-core', async (importOriginal) => {
     await importOriginal<typeof import('@google/gemini-cli-core')>();
   return {
     ...actual,
-    loadApiKey: () => mockLoadApiKey(),
+    loadApiKey: (authType?: AuthType) => mockLoadApiKey(authType),
   };
 });
 
@@ -41,6 +41,8 @@ describe('useAuth', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     delete process.env['GEMINI_API_KEY'];
+    delete process.env['ZAI_API_KEY'];
+    delete process.env['GLM_API_KEY'];
     delete process.env['GEMINI_DEFAULT_AUTH_TYPE'];
   });
 
@@ -98,6 +100,19 @@ describe('useAuth', () => {
         AuthType.USE_GEMINI,
         settings,
       );
+      expect(error).toBeNull();
+    });
+
+    it('should return null if authType is USE_GLM', () => {
+      const settings = {
+        merged: {
+          security: {
+            auth: {},
+          },
+        },
+      } as LoadedSettings;
+
+      const error = validateAuthMethodWithSettings(AuthType.USE_GLM, settings);
       expect(error).toBeNull();
     });
 
@@ -172,6 +187,20 @@ describe('useAuth', () => {
       });
     });
 
+    it('should set error if GLM env key exists and no auth type selected', async () => {
+      process.env['ZAI_API_KEY'] = 'glm-key';
+      const { result } = renderHook(() =>
+        useAuthCommand(createSettings(undefined), mockConfig),
+      );
+
+      await waitFor(() => {
+        expect(result.current.authError).toContain(
+          'Existing API key detected (ZAI_API_KEY)',
+        );
+        expect(result.current.authState).toBe(AuthState.Updating);
+      });
+    });
+
     it('should transition to AwaitingApiKeyInput if USE_GEMINI and no key found', async () => {
       mockLoadApiKey.mockResolvedValue(null);
       const { result } = renderHook(() =>
@@ -195,6 +224,32 @@ describe('useAuth', () => {
         );
         expect(result.current.authState).toBe(AuthState.Authenticated);
         expect(result.current.apiKeyDefaultValue).toBe('stored-key');
+      });
+    });
+
+    it('should transition to AwaitingApiKeyInput if USE_GLM and no key found', async () => {
+      mockLoadApiKey.mockResolvedValue(null);
+      const { result } = renderHook(() =>
+        useAuthCommand(createSettings(AuthType.USE_GLM), mockConfig),
+      );
+
+      await waitFor(() => {
+        expect(result.current.authState).toBe(AuthState.AwaitingApiKeyInput);
+        expect(result.current.apiKeyAuthType).toBe(AuthType.USE_GLM);
+      });
+    });
+
+    it('should authenticate if USE_GLM and key is found', async () => {
+      mockLoadApiKey.mockResolvedValue('glm-key');
+      const { result } = renderHook(() =>
+        useAuthCommand(createSettings(AuthType.USE_GLM), mockConfig),
+      );
+
+      await waitFor(() => {
+        expect(mockConfig.refreshAuth).toHaveBeenCalledWith(AuthType.USE_GLM);
+        expect(result.current.authState).toBe(AuthState.Authenticated);
+        expect(result.current.apiKeyAuthType).toBe(AuthType.USE_GLM);
+        expect(result.current.apiKeyDefaultValue).toBe('glm-key');
       });
     });
 

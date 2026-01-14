@@ -24,6 +24,7 @@ import type {
   UserTierId,
   IdeInfo,
   FallbackIntent,
+  AuthType,
 } from '@google/gemini-cli-core';
 import type { DOMElement } from 'ink';
 import type { SessionStatsState } from '../contexts/SessionContext.js';
@@ -54,6 +55,7 @@ export interface UIState {
   isAuthDialogOpen: boolean;
   isAwaitingApiKeyInput: boolean;
   apiKeyDefaultValue?: string;
+  apiKeyAuthType?: AuthType;
   editorError: string | null;
   isEditorDialogOpen: boolean;
   showPrivacyNotice: boolean;

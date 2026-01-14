@@ -89,6 +89,12 @@ export class GeminiAgent {
           'Requires setting the `GEMINI_API_KEY` environment variable',
       },
       {
+        id: AuthType.USE_GLM,
+        name: 'Use GLM API key',
+        description:
+          'Requires setting the `ZAI_API_KEY` (or GLM_API_KEY) environment variable',
+      },
+      {
         id: AuthType.USE_VERTEX_AI,
         name: 'Vertex AI',
         description: null,

@@ -18,6 +18,8 @@ vi.mock('./settings.js', () => ({
 describe('validateAuthMethod', () => {
   beforeEach(() => {
     vi.stubEnv('GEMINI_API_KEY', undefined);
+    vi.stubEnv('ZAI_API_KEY', undefined);
+    vi.stubEnv('GLM_API_KEY', undefined);
     vi.stubEnv('GOOGLE_CLOUD_PROJECT', undefined);
     vi.stubEnv('GOOGLE_CLOUD_LOCATION', undefined);
     vi.stubEnv('GOOGLE_API_KEY', undefined);
@@ -53,6 +55,21 @@ describe('validateAuthMethod', () => {
       envs: {},
       expected:
         'When using Gemini API, you must specify the GEMINI_API_KEY environment variable.\n' +
+        'Update your environment and try again (no reload needed if using .env)!',
+    },
+    {
+      description: 'should return null for USE_GLM if ZAI_API_KEY is set',
+      authType: AuthType.USE_GLM,
+      envs: { ZAI_API_KEY: 'z-test' },
+      expected: null,
+    },
+    {
+      description:
+        'should return an error message for USE_GLM if no GLM env var is set',
+      authType: AuthType.USE_GLM,
+      envs: {},
+      expected:
+        'When using GLM API, you must specify the ZAI_API_KEY environment variable (or GLM_API_KEY).\n' +
         'Update your environment and try again (no reload needed if using .env)!',
     },
     {
