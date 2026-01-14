@@ -12,7 +12,7 @@ import {
   useTextBuffer,
   type TextBuffer,
 } from '../components/shared/text-buffer.js';
-import { clearApiKey } from '@google/gemini-cli-core';
+import { AuthType, clearApiKey } from '@google/gemini-cli-core';
 
 // Mocks
 vi.mock('@google/gemini-cli-core', async (importOriginal) => {
@@ -66,7 +66,11 @@ describe('ApiAuthDialog', () => {
 
   it('renders correctly', () => {
     const { lastFrame } = render(
-      <ApiAuthDialog onSubmit={onSubmit} onCancel={onCancel} />,
+      <ApiAuthDialog
+        onSubmit={onSubmit}
+        onCancel={onCancel}
+        authType={AuthType.USE_GEMINI}
+      />,
     );
     expect(lastFrame()).toMatchSnapshot();
   });
@@ -77,6 +81,7 @@ describe('ApiAuthDialog', () => {
         onSubmit={onSubmit}
         onCancel={onCancel}
         defaultValue="test-key"
+        authType={AuthType.USE_GEMINI}
       />,
     );
     expect(mockedUseTextBuffer).toHaveBeenCalledWith(
@@ -101,7 +106,13 @@ describe('ApiAuthDialog', () => {
     'calls $expectedCall.name when $keyName is pressed',
     ({ keyName, sequence, expectedCall, args }) => {
       mockBuffer.text = 'submitted-key'; // Set for the onSubmit case
-      render(<ApiAuthDialog onSubmit={onSubmit} onCancel={onCancel} />);
+      render(
+        <ApiAuthDialog
+          onSubmit={onSubmit}
+          onCancel={onCancel}
+          authType={AuthType.USE_GEMINI}
+        />,
+      );
       // calls[0] is the ApiAuthDialog's useKeypress (Ctrl+C handler)
       // calls[1] is the TextInput's useKeypress (typing handler)
       const keypressHandler = mockedUseKeypress.mock.calls[1][0];
@@ -124,6 +135,7 @@ describe('ApiAuthDialog', () => {
         onSubmit={onSubmit}
         onCancel={onCancel}
         error="Invalid API Key"
+        authType={AuthType.USE_GEMINI}
       />,
     );
 
@@ -131,7 +143,13 @@ describe('ApiAuthDialog', () => {
   });
 
   it('calls clearApiKey and clears buffer when Ctrl+C is pressed', async () => {
-    render(<ApiAuthDialog onSubmit={onSubmit} onCancel={onCancel} />);
+    render(
+      <ApiAuthDialog
+        onSubmit={onSubmit}
+        onCancel={onCancel}
+        authType={AuthType.USE_GEMINI}
+      />,
+    );
     // calls[0] is the ApiAuthDialog's useKeypress (Ctrl+C handler)
     const keypressHandler = mockedUseKeypress.mock.calls[0][0];
 
@@ -142,7 +160,20 @@ describe('ApiAuthDialog', () => {
       shift: false,
     });
 
-    expect(clearApiKey).toHaveBeenCalled();
+    expect(clearApiKey).toHaveBeenCalledWith(AuthType.USE_GEMINI);
     expect(mockBuffer.setText).toHaveBeenCalledWith('');
+  });
+
+  it('renders GLM-specific messaging', () => {
+    const { lastFrame } = render(
+      <ApiAuthDialog
+        onSubmit={onSubmit}
+        onCancel={onCancel}
+        authType={AuthType.USE_GLM}
+      />,
+    );
+
+    expect(lastFrame()).toContain('GLM API Key');
+    expect(lastFrame()).toContain('https://docs.z.ai/guides/llm/glm-4.7');
   });
 });

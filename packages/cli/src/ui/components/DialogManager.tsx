@@ -27,6 +27,7 @@ import { useUIState } from '../contexts/UIStateContext.js';
 import { useUIActions } from '../contexts/UIActionsContext.js';
 import { useConfig } from '../contexts/ConfigContext.js';
 import { useSettings } from '../contexts/SettingsContext.js';
+import { AuthType } from '@google/gemini-cli-core';
 import process from 'node:process';
 import { type UseHistoryManagerReturn } from '../hooks/useHistoryManager.js';
 import { AdminSettingsChangedDialog } from './AdminSettingsChangedDialog.js';
@@ -163,11 +164,16 @@ export const DialogManager = ({
     return (
       <Box flexDirection="column">
         <ApiAuthDialog
-          key={uiState.apiKeyDefaultValue}
+          key={`${uiState.apiKeyAuthType ?? 'gemini'}-${uiState.apiKeyDefaultValue ?? ''}`}
           onSubmit={uiActions.handleApiKeySubmit}
           onCancel={uiActions.handleApiKeyCancel}
           error={uiState.authError}
           defaultValue={uiState.apiKeyDefaultValue}
+          authType={
+            uiState.apiKeyAuthType ??
+            settings.merged.security?.auth?.selectedType ??
+            AuthType.USE_GEMINI
+          }
         />
       </Box>
     );

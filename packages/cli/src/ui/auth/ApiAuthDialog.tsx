@@ -11,7 +11,7 @@ import { theme } from '../semantic-colors.js';
 import { TextInput } from '../components/shared/TextInput.js';
 import { useTextBuffer } from '../components/shared/text-buffer.js';
 import { useUIState } from '../contexts/UIStateContext.js';
-import { clearApiKey, debugLogger } from '@google/gemini-cli-core';
+import { AuthType, clearApiKey, debugLogger } from '@google/gemini-cli-core';
 import { useKeypress } from '../hooks/useKeypress.js';
 import { keyMatchers, Command } from '../keyMatchers.js';
 
@@ -20,6 +20,7 @@ interface ApiAuthDialogProps {
   onCancel: () => void;
   error?: string | null;
   defaultValue?: string;
+  authType: AuthType;
 }
 
 export function ApiAuthDialog({
@@ -27,9 +28,11 @@ export function ApiAuthDialog({
   onCancel,
   error,
   defaultValue = '',
+  authType,
 }: ApiAuthDialogProps): React.JSX.Element {
   const { mainAreaWidth } = useUIState();
   const viewportWidth = mainAreaWidth - 8;
+  const isGlm = authType === AuthType.USE_GLM;
 
   const pendingPromise = useRef<{ cancel: () => void } | null>(null);
 
@@ -64,7 +67,7 @@ export function ApiAuthDialog({
 
     let isCancelled = false;
     const wrappedPromise = new Promise<void>((resolve, reject) => {
-      clearApiKey().then(
+      clearApiKey(authType).then(
         () => !isCancelled && resolve(),
         (error) => !isCancelled && reject(error),
       );
@@ -103,17 +106,19 @@ export function ApiAuthDialog({
       width="100%"
     >
       <Text bold color={theme.text.primary}>
-        Enter Gemini API Key
+        Enter {isGlm ? 'GLM' : 'Gemini'} API Key
       </Text>
       <Box marginTop={1} flexDirection="column">
         <Text color={theme.text.primary}>
-          Please enter your Gemini API key. It will be securely stored in your
-          system keychain.
+          Please enter your {isGlm ? 'GLM' : 'Gemini'} API key. It will be
+          securely stored in your system keychain.
         </Text>
         <Text color={theme.text.secondary}>
           You can get an API key from{' '}
           <Text color={theme.text.link}>
-            https://aistudio.google.com/app/apikey
+            {isGlm
+              ? 'https://docs.z.ai/guides/llm/glm-4.7'
+              : 'https://aistudio.google.com/app/apikey'}
           </Text>
         </Text>
       </Box>

@@ -483,6 +483,7 @@ export const AppContainer = (props: AppContainerProps) => {
     onAuthError,
     apiKeyDefaultValue,
     reloadApiKey,
+    apiKeyAuthType,
   } = useAuthCommand(settings, config);
   const [authContext, setAuthContext] = useState<{ requiresRestart?: boolean }>(
     {},
@@ -584,9 +585,16 @@ Logging in with Google... Restarting Gemini CLI to continue.
           return;
         }
 
-        await saveApiKey(apiKey);
-        await reloadApiKey();
-        await config.refreshAuth(AuthType.USE_GEMINI);
+        const selectedAuthType =
+          settings.merged.security?.auth?.selectedType ?? apiKeyAuthType;
+        const targetAuthType =
+          selectedAuthType === AuthType.USE_GLM
+            ? AuthType.USE_GLM
+            : AuthType.USE_GEMINI;
+
+        await saveApiKey(apiKey, targetAuthType);
+        await reloadApiKey(targetAuthType);
+        await config.refreshAuth(targetAuthType);
         setAuthState(AuthState.Authenticated);
       } catch (e) {
         onAuthError(
@@ -594,7 +602,14 @@ Logging in with Google... Restarting Gemini CLI to continue.
         );
       }
     },
-    [setAuthState, onAuthError, reloadApiKey, config],
+    [
+      setAuthState,
+      onAuthError,
+      reloadApiKey,
+      config,
+      settings.merged.security?.auth?.selectedType,
+      apiKeyAuthType,
+    ],
   );
 
   const handleApiKeyCancel = useCallback(() => {
@@ -628,7 +643,10 @@ Logging in with Google... Restarting Gemini CLI to continue.
       // We skip validation for Gemini API key here because it might be stored
       // in the keychain, which we can't check synchronously.
       // The useAuth hook handles validation for this case.
-      if (settings.merged.security.auth.selectedType === AuthType.USE_GEMINI) {
+      if (
+        settings.merged.security.auth.selectedType === AuthType.USE_GEMINI ||
+        settings.merged.security.auth.selectedType === AuthType.USE_GLM
+      ) {
         return;
       }
 
@@ -1537,6 +1555,7 @@ Logging in with Google... Restarting Gemini CLI to continue.
       isAuthDialogOpen,
       isAwaitingApiKeyInput: authState === AuthState.AwaitingApiKeyInput,
       apiKeyDefaultValue,
+      apiKeyAuthType,
       editorError,
       isEditorDialogOpen,
       showPrivacyNotice,
@@ -1706,6 +1725,7 @@ Logging in with Google... Restarting Gemini CLI to continue.
       showDebugProfiler,
       customDialog,
       apiKeyDefaultValue,
+      apiKeyAuthType,
       authState,
       copyModeEnabled,
       warningMessage,

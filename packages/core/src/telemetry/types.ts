@@ -82,7 +82,9 @@ export class StartSessionEvent implements BaseTelemetryEvent {
     let useGemini = false;
     let useVertex = false;
     if (generatorConfig && generatorConfig.authType) {
-      useGemini = generatorConfig.authType === AuthType.USE_GEMINI;
+      useGemini =
+        generatorConfig.authType === AuthType.USE_GEMINI ||
+        generatorConfig.authType === AuthType.USE_GLM;
       useVertex = generatorConfig.authType === AuthType.USE_VERTEX_AI;
     }
 
