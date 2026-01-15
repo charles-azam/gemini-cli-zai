@@ -9,7 +9,7 @@ import os from 'node:os';
 import process from 'node:process';
 import * as crypto from 'node:crypto';
 
-export const GEMINI_DIR = '.gemini';
+export const GEMINI_DIR = '.gemini-cli-openai';
 export const GOOGLE_ACCOUNTS_FILENAME = 'google_accounts.json';
 
 /**

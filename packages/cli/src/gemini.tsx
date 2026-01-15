@@ -364,6 +364,11 @@ export async function main() {
     }
   }
 
+  // Override to GLM auth if ZAI_API_KEY is set
+  if (process.env['ZAI_API_KEY']) {
+    settings.setValue(SettingScope.User, 'selectedAuthType', AuthType.USE_GLM);
+  }
+
   const partialConfig = await loadCliConfig(settings.merged, sessionId, argv, {
     projectHooks: settings.workspace.settings.hooks,
   });
