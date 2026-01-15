@@ -152,7 +152,7 @@ export function AuthDialog({
         if (authType === AuthType.USE_GLM) {
           if (
             process.env['ZAI_API_KEY'] !== undefined ||
-            process.env['GLM_API_KEY'] !== undefined
+            process.env['ZAI_API_KEY'] !== undefined
           ) {
             setAuthState(AuthState.Unauthenticated);
             return;

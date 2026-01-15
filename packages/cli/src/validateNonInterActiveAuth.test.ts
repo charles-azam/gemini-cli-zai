@@ -48,12 +48,12 @@ describe('validateNonInterActiveAuth', () => {
     originalEnvVertexAi = process.env['GOOGLE_GENAI_USE_VERTEXAI'];
     originalEnvGcp = process.env['GOOGLE_GENAI_USE_GCA'];
     originalEnvZaiApiKey = process.env['ZAI_API_KEY'];
-    originalEnvGlmApiKey = process.env['GLM_API_KEY'];
+    originalEnvGlmApiKey = process.env['ZAI_API_KEY'];
     delete process.env['GEMINI_API_KEY'];
     delete process.env['GOOGLE_GENAI_USE_VERTEXAI'];
     delete process.env['GOOGLE_GENAI_USE_GCA'];
     delete process.env['ZAI_API_KEY'];
-    delete process.env['GLM_API_KEY'];
+    delete process.env['ZAI_API_KEY'];
     debugLoggerErrorSpy = vi
       .spyOn(debugLogger, 'error')
       .mockImplementation(() => {});
@@ -109,9 +109,9 @@ describe('validateNonInterActiveAuth', () => {
       delete process.env['ZAI_API_KEY'];
     }
     if (originalEnvGlmApiKey !== undefined) {
-      process.env['GLM_API_KEY'] = originalEnvGlmApiKey;
+      process.env['ZAI_API_KEY'] = originalEnvGlmApiKey;
     } else {
-      delete process.env['GLM_API_KEY'];
+      delete process.env['ZAI_API_KEY'];
     }
     vi.restoreAllMocks();
   });
