@@ -31,7 +31,9 @@ describe('GlmContentGenerator', () => {
           prompt_tokens: 10,
           completion_tokens: 5,
           total_tokens: 15,
-          reasoning_tokens: 2,
+          completion_tokens_details: {
+            reasoning_tokens: 2,
+          },
         },
         choices: [
           {
@@ -39,7 +41,7 @@ describe('GlmContentGenerator', () => {
             index: 0,
             message: {
               content: [{ type: 'text', text: 'Hello world' }],
-              reasoning_content: [{ type: 'text', text: 'thinking' }],
+              reasoning_content: 'thinking',
               tool_calls: [
                 {
                   id: 'call_1',

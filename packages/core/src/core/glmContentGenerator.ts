@@ -19,7 +19,8 @@ import type {
   GenerateContentResponse,
   GenerateContentResponseUsageMetadata,
   FunctionDeclaration,
- FinishReason } from '@google/genai';
+  FinishReason,
+} from '@google/genai';
 import { FunctionCallingConfigMode } from '@google/genai';
 import { estimateTokenCountSync } from '../utils/tokenCalculation.js';
 import { debugLogger } from '../utils/debugLogger.js';
@@ -54,6 +55,7 @@ function createResponse(
 interface GlmMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
   content: string | Array<{ type: string; text?: string }> | null;
+  reasoning_content?: string | Array<{ type: string; text?: string }> | null;
   name?: string;
   tool_call_id?: string;
   tool_calls?: GlmToolCall[];
@@ -90,6 +92,10 @@ interface GlmChatCompletionRequest {
     | 'none'
     | 'required'
     | { type: 'function'; function: { name: string } };
+  thinking?: {
+    type: 'enabled';
+    clear_thinking?: boolean;
+  };
 }
 
 interface GlmUsage {
@@ -97,6 +103,9 @@ interface GlmUsage {
   completion_tokens?: number;
   total_tokens?: number;
   reasoning_tokens?: number;
+  completion_tokens_details?: {
+    reasoning_tokens?: number;
+  };
 }
 
 interface GlmChatCompletionChoice {
@@ -104,7 +113,7 @@ interface GlmChatCompletionChoice {
   message?: {
     role: 'assistant';
     content?: string | Array<{ type: string; text?: string }> | null;
-    reasoning_content?: Array<{ type: string; text?: string }> | null;
+    reasoning_content?: string | Array<{ type: string; text?: string }> | null;
     tool_calls?: GlmToolCall[];
   };
   finish_reason: string | null;
@@ -120,8 +129,8 @@ interface GlmChatCompletionResponse {
 interface GlmChatCompletionChunkChoice {
   index: number;
   delta?: {
-    content?: Array<{ type: string; text?: string }> | null;
-    reasoning_content?: Array<{ type: string; text?: string }> | null;
+    content?: string | Array<{ type: string; text?: string }> | null;
+    reasoning_content?: string | Array<{ type: string; text?: string }> | null;
     tool_calls?: GlmToolCall[];
   };
   finish_reason: string | null;
@@ -163,6 +172,21 @@ function normalizeContentText(
     .join('');
 }
 
+function normalizeReasoningText(
+  content: string | Array<{ type: string; text?: string }> | null | undefined,
+): string {
+  if (!content) {
+    return '';
+  }
+  if (typeof content === 'string') {
+    return content;
+  }
+  return content
+    .map((part) => part.text ?? '')
+    .filter((text) => text.length > 0)
+    .join('');
+}
+
 function toUsageMetadata(
   usage?: GlmUsage,
 ): GenerateContentResponseUsageMetadata | undefined {
@@ -174,8 +198,10 @@ function toUsageMetadata(
     candidatesTokenCount: usage.completion_tokens,
     totalTokenCount: usage.total_tokens,
   };
-  if (usage.reasoning_tokens !== undefined) {
-    usageMetadata.thoughtsTokenCount = usage.reasoning_tokens;
+  const reasoningTokens =
+    usage.reasoning_tokens ?? usage.completion_tokens_details?.reasoning_tokens;
+  if (reasoningTokens !== undefined) {
+    usageMetadata.thoughtsTokenCount = reasoningTokens;
   }
   return usageMetadata;
 }
@@ -435,6 +461,22 @@ export class GlmContentGenerator {
     if (toolChoice) {
       payload.tool_choice = toolChoice;
     }
+    const thinkingConfig = request.config?.thinkingConfig as
+      | {
+          includeThoughts?: boolean;
+          thinkingBudget?: number;
+          thinkingLevel?: unknown;
+        }
+      | undefined;
+    const thinkingEnabled =
+      Boolean(thinkingConfig?.thinkingLevel) ||
+      (thinkingConfig?.thinkingBudget ?? 1) > 0;
+    if (thinkingEnabled && thinkingConfig?.includeThoughts !== false) {
+      payload.thinking = {
+        type: 'enabled',
+        clear_thinking: false,
+      };
+    }
     return payload;
   }
 
@@ -485,11 +527,15 @@ export class GlmContentGenerator {
   private convertContent(content: Content): GlmMessage[] {
     const role = content.role === 'model' ? 'assistant' : 'user';
     const textParts: string[] = [];
+    const reasoningParts: string[] = [];
     const messages: GlmMessage[] = [];
     const toolCalls: GlmToolCall[] = [];
 
     for (const part of content.parts ?? []) {
       if (part.thought) {
+        if (part.text) {
+          reasoningParts.push(part.text);
+        }
         continue;
       }
       if (part.text) {
@@ -527,10 +573,16 @@ export class GlmContentGenerator {
     }
 
     if (role === 'assistant') {
-      if (textParts.length > 0 || toolCalls.length > 0) {
+      if (
+        textParts.length > 0 ||
+        toolCalls.length > 0 ||
+        reasoningParts.length > 0
+      ) {
         messages.push({
           role: 'assistant',
           content: textParts.length > 0 ? textParts.join('\n') : '',
+          reasoning_content:
+            reasoningParts.length > 0 ? reasoningParts.join('') : undefined,
           tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
         });
       }
@@ -549,11 +601,11 @@ export class GlmContentGenerator {
         ? response.choices[0]
         : undefined;
     const parts: Part[] = [];
-    if (choice?.message?.reasoning_content) {
-      for (const segment of choice.message.reasoning_content) {
-        if (!segment?.text) continue;
-        parts.push({ text: segment.text, thought: true });
-      }
+    const reasoningText = normalizeReasoningText(
+      choice?.message?.reasoning_content,
+    );
+    if (reasoningText) {
+      parts.push({ text: reasoningText, thought: true });
     }
     const messageText = normalizeContentText(choice?.message?.content);
     if (messageText) {
@@ -659,11 +711,11 @@ export class GlmContentGenerator {
     for (const choice of chunk.choices ?? []) {
       const parts: Part[] = [];
       const responses: GenerateContentResponse[] = [];
-      if (choice.delta?.reasoning_content) {
-        for (const reason of choice.delta.reasoning_content) {
-          if (!reason?.text) continue;
-          parts.push({ text: reason.text, thought: true });
-        }
+      const reasoningDelta = normalizeReasoningText(
+        choice.delta?.reasoning_content,
+      );
+      if (reasoningDelta) {
+        parts.push({ text: reasoningDelta, thought: true });
       }
       const textDelta = normalizeContentText(choice.delta?.content);
       if (textDelta) {
