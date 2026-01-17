@@ -462,22 +462,10 @@ export class GlmContentGenerator {
     if (toolChoice) {
       payload.tool_choice = toolChoice;
     }
-    const thinkingConfig = request.config?.thinkingConfig as
-      | {
-          includeThoughts?: boolean;
-          thinkingBudget?: number;
-          thinkingLevel?: unknown;
-        }
-      | undefined;
-    const thinkingEnabled =
-      Boolean(thinkingConfig?.thinkingLevel) ||
-      (thinkingConfig?.thinkingBudget ?? 1) > 0;
-    if (thinkingEnabled && thinkingConfig?.includeThoughts !== false) {
-      payload.thinking = {
-        type: 'enabled',
-        clear_thinking: this.options.clearThinking ?? false,
-      };
-    }
+    payload.thinking = {
+      type: 'enabled',
+      clear_thinking: this.options.clearThinking ?? false,
+    };
     return payload;
   }
 

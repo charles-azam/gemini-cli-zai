@@ -43,6 +43,9 @@ gemini --model glm-4.7 \
 
 `--zai-model` is an alias for `--model`.
 
+Note: Z.ai thinking mode is always requested in this fork; it does not honor
+Gemini `thinkingConfig` settings.
+
 Example `settings.json`:
 
 ```json
