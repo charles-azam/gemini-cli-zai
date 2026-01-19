@@ -15,6 +15,7 @@ import { getErrorMessage } from '../utils/errors.js';
 import { type Config } from '../config/config.js';
 import { getResponseText } from '../utils/partUtils.js';
 import { debugLogger } from '../utils/debugLogger.js';
+import { AuthType } from '../core/authTypes.js';
 
 interface GroundingChunkWeb {
   uri?: string;
@@ -36,6 +37,117 @@ interface GroundingSupportItem {
   segment?: GroundingSupportSegment;
   groundingChunkIndices?: number[];
   confidenceScores?: number[]; // Optional as per example
+}
+
+interface ZaiWebSearchToolDefinition {
+  type: 'web_search';
+  web_search: {
+    enable: 'True';
+    search_engine: 'search-prime';
+    count: string;
+    search_result: 'True';
+    search_prompt?: string;
+    content_size?: 'low' | 'medium' | 'high';
+    search_domain_filter?: string;
+    search_recency_filter?: 'day' | 'week' | 'month' | 'year' | 'noLimit';
+  };
+}
+
+interface ZaiWebSearchMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string | Array<{ type: string; text?: string }> | null;
+}
+
+interface ZaiWebSearchRequest {
+  model: string;
+  messages: ZaiWebSearchMessage[];
+  tools: ZaiWebSearchToolDefinition[];
+  thinking?: {
+    type: 'enabled' | 'disabled';
+    clear_thinking?: boolean;
+  };
+}
+
+interface ZaiWebSearchResult {
+  title?: string;
+  link?: string;
+  content?: string;
+  media?: string;
+  refer?: string;
+}
+
+interface ZaiWebSearchResponseChoice {
+  message?: {
+    content?: string | Array<{ type: string; text?: string }> | null;
+  };
+}
+
+interface ZaiWebSearchResponse {
+  choices?: ZaiWebSearchResponseChoice[];
+  web_search?: ZaiWebSearchResult[];
+}
+
+const DEFAULT_ZAI_CHAT_ENDPOINT =
+  'https://api.z.ai/api/coding/paas/v4/chat/completions';
+const DEFAULT_GLM_MODEL = 'glm-4.7';
+
+function normalizeZaiContent(
+  content: string | Array<{ type: string; text?: string }> | null | undefined,
+): string {
+  if (!content) {
+    return '';
+  }
+  if (typeof content === 'string') {
+    return content;
+  }
+  return content
+    .map((part) => part.text ?? '')
+    .filter((text) => text.length > 0)
+    .join('');
+}
+
+function formatZaiSources(results: ZaiWebSearchResult[] | undefined): {
+  sources: GroundingChunkItem[] | undefined;
+  sourcesText: string;
+} {
+  if (!results || results.length === 0) {
+    return { sources: undefined, sourcesText: '' };
+  }
+  const sources = results.map((result) => ({
+    web: {
+      uri: result.link,
+      title: result.title,
+    },
+  }));
+  const sourcesText = results
+    .map((result, index) => {
+      const title = result.title || 'Untitled';
+      const uri = result.link || 'No URI';
+      return `[${index + 1}] ${title} (${uri})`;
+    })
+    .join('\n');
+  return { sources, sourcesText };
+}
+
+function formatZaiFallback(results: ZaiWebSearchResult[]): string {
+  return results
+    .map((result, index) => {
+      const title = result.title || 'Untitled';
+      const uri = result.link || 'No URI';
+      const snippet = result.content ? `\n${result.content}` : '';
+      return `[${index + 1}] ${title}\n${uri}${snippet}`;
+    })
+    .join('\n\n');
+}
+
+function mapZaiModel(model: string | undefined): string {
+  if (!model) {
+    return DEFAULT_GLM_MODEL;
+  }
+  if (model.startsWith('glm-')) {
+    return model;
+  }
+  return DEFAULT_GLM_MODEL;
 }
 
 /**
@@ -77,6 +189,9 @@ class WebSearchToolInvocation extends BaseToolInvocation<
   }
 
   async execute(signal: AbortSignal): Promise<WebSearchToolResult> {
+    if (this.isGlmAuth()) {
+      return this.executeZaiSearch(signal);
+    }
     const geminiClient = this.config.getGeminiClient();
 
     try {
@@ -179,10 +294,128 @@ class WebSearchToolInvocation extends BaseToolInvocation<
       };
     }
   }
+
+  private isGlmAuth(): boolean {
+    return (
+      this.config.getContentGeneratorConfig()?.authType === AuthType.USE_GLM
+    );
+  }
+
+  private getZaiEndpoint(): string {
+    return (
+      this.config.getGlmEndpoint?.() ||
+      process.env['GLM_API_BASE_URL'] ||
+      process.env['ZAI_API_BASE_URL'] ||
+      DEFAULT_ZAI_CHAT_ENDPOINT
+    );
+  }
+
+  private buildZaiPayload(): ZaiWebSearchRequest {
+    const thinkingEnabled = !(this.config.getGlmDisableThinking?.() ?? false);
+    const thinking = thinkingEnabled
+      ? {
+          type: 'enabled' as const,
+          clear_thinking: this.config.getGlmClearThinking?.() ?? false,
+        }
+      : { type: 'disabled' as const };
+
+    return {
+      model: mapZaiModel(this.config.getActiveModel()),
+      messages: [{ role: 'user', content: this.params.query }],
+      tools: [
+        {
+          type: 'web_search',
+          web_search: {
+            enable: 'True',
+            search_engine: 'search-prime',
+            count: '5',
+            search_result: 'True',
+            search_prompt: 'Summarize key points from {{search_result}}.',
+            content_size: 'high',
+            search_recency_filter: 'noLimit',
+          },
+        },
+      ],
+      thinking,
+    };
+  }
+
+  private async executeZaiSearch(
+    signal: AbortSignal,
+  ): Promise<WebSearchToolResult> {
+    try {
+      const contentConfig = this.config.getContentGeneratorConfig();
+      if (!contentConfig?.apiKey) {
+        throw new Error('ZAI API key is not configured.');
+      }
+
+      const payload = this.buildZaiPayload();
+      const endpoint = this.getZaiEndpoint();
+      debugLogger.debug(`[ZAI] POST ${endpoint} web_search`);
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${contentConfig.apiKey}`,
+        },
+        body: JSON.stringify(payload),
+        signal,
+      });
+
+      if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        throw new Error(
+          `ZAI web search request failed (${response.status}): ${text || response.statusText}`,
+        );
+      }
+
+      const data = (await response.json()) as ZaiWebSearchResponse;
+      const responseText = normalizeZaiContent(
+        data.choices?.[0]?.message?.content,
+      );
+      const results = data.web_search ?? [];
+      const { sources, sourcesText } = formatZaiSources(results);
+
+      let finalText = responseText.trim();
+      if (!finalText) {
+        if (results.length === 0) {
+          return {
+            llmContent: `No search results or information found for query: "${this.params.query}"`,
+            returnDisplay: 'No information found.',
+          };
+        }
+        finalText = formatZaiFallback(results);
+      }
+
+      if (sourcesText) {
+        finalText += `\n\nSources:\n${sourcesText}`;
+      }
+
+      return {
+        llmContent: `Web search results for "${this.params.query}":\n\n${finalText}`,
+        returnDisplay: `Search results for "${this.params.query}" returned.`,
+        sources,
+      };
+    } catch (error: unknown) {
+      const errorMessage = `Error during web search for query "${
+        this.params.query
+      }": ${getErrorMessage(error)}`;
+      debugLogger.warn(errorMessage, error);
+      return {
+        llmContent: `Error: ${errorMessage}`,
+        returnDisplay: `Error performing web search.`,
+        error: {
+          message: errorMessage,
+          type: ToolErrorType.WEB_SEARCH_FAILED,
+        },
+      };
+    }
+  }
 }
 
 /**
- * A tool to perform web searches using Google Search via the Gemini API.
+ * A tool to perform web searches using the configured provider.
  */
 export class WebSearchTool extends BaseDeclarativeTool<
   WebSearchToolParams,
@@ -197,7 +430,7 @@ export class WebSearchTool extends BaseDeclarativeTool<
     super(
       WebSearchTool.Name,
       'GoogleSearch',
-      'Performs a web search using Google Search (via the Gemini API) and returns the results. This tool is useful for finding information on the internet based on a query.',
+      'Performs a web search and returns the results. This tool is useful for finding information on the internet based on a query.',
       Kind.Search,
       {
         type: 'object',

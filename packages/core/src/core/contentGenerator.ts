@@ -85,8 +85,7 @@ export async function createContentGeneratorConfig(
   };
   contentGeneratorConfig.glmEndpoint = config.getGlmEndpoint?.();
   contentGeneratorConfig.glmClearThinking = config.getGlmClearThinking?.();
-  contentGeneratorConfig.glmDisableThinking =
-    config.getGlmDisableThinking?.();
+  contentGeneratorConfig.glmDisableThinking = config.getGlmDisableThinking?.();
 
   // If we are using Google auth or we are in Cloud Shell, there is nothing else to validate for now
   if (
