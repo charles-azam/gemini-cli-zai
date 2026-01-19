@@ -10,6 +10,7 @@ import type { WebSearchToolParams } from './web-search.js';
 import { WebSearchTool } from './web-search.js';
 import type { Config } from '../config/config.js';
 import { GeminiClient } from '../core/client.js';
+import { AuthType } from '../core/authTypes.js';
 import { ToolErrorType } from './tool-error.js';
 import { createMockMessageBus } from '../test-utils/mock-message-bus.js';
 
@@ -21,11 +22,19 @@ describe('WebSearchTool', () => {
   const abortSignal = new AbortController().signal;
   let mockGeminiClient: GeminiClient;
   let tool: WebSearchTool;
+  let mockConfigInstance: Config;
 
   beforeEach(() => {
-    const mockConfigInstance = {
+    mockConfigInstance = {
       getGeminiClient: () => mockGeminiClient,
       getProxy: () => undefined,
+      getActiveModel: () => 'glm-4.7',
+      getGlmEndpoint: () => undefined,
+      getGlmClearThinking: () => false,
+      getGlmDisableThinking: () => false,
+      getContentGeneratorConfig: () => ({
+        authType: AuthType.USE_GEMINI,
+      }),
       generationConfigService: {
         getResolvedConfig: vi.fn().mockImplementation(({ model }) => ({
           model,
@@ -98,6 +107,48 @@ describe('WebSearchTool', () => {
         'Search results for "successful query" returned.',
       );
       expect(result.sources).toBeUndefined();
+    });
+
+    it('should use ZAI web search when GLM auth is active', async () => {
+      const params: WebSearchToolParams = { query: 'glm query' };
+      vi.spyOn(mockConfigInstance, 'getContentGeneratorConfig').mockReturnValue(
+        {
+          authType: AuthType.USE_GLM,
+          apiKey: 'zai-key',
+        },
+      );
+      const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          choices: [
+            {
+              message: {
+                content: 'ZAI search summary.',
+              },
+            },
+          ],
+          web_search: [
+            {
+              title: 'Result One',
+              link: 'https://example.com/one',
+              content: 'Snippet one',
+            },
+            {
+              title: 'Result Two',
+              link: 'https://example.com/two',
+              content: 'Snippet two',
+            },
+          ],
+        }),
+      } as unknown as Response);
+
+      const invocation = tool.build(params);
+      const result = await invocation.execute(abortSignal);
+
+      expect(fetchMock).toHaveBeenCalled();
+      expect(result.llmContent).toContain('ZAI search summary.');
+      expect(result.llmContent).toContain('Sources:');
+      expect(result.sources).toHaveLength(2);
     });
 
     it('should handle no search results found', async () => {

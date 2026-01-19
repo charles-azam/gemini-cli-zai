@@ -19,7 +19,7 @@ import { validateAuthMethod } from '../../config/auth.js';
 
 function getEnvApiKey(authType: AuthType): string | undefined {
   if (authType === AuthType.USE_GLM) {
-    return process.env['ZAI_API_KEY'] ?? process.env['ZAI_API_KEY'];
+    return process.env['ZAI_API_KEY'];
   }
   return process.env['GEMINI_API_KEY'];
 }
@@ -101,10 +101,7 @@ export const useAuthCommand = (settings: LoadedSettings, config: Config) => {
       let authType = settings.merged.security?.auth?.selectedType;
 
       // Auto-select GLM auth if ZAI_API_KEY is set and no auth type selected
-      if (
-        !authType &&
-        (process.env['ZAI_API_KEY'] || process.env['ZAI_API_KEY'])
-      ) {
+      if (!authType && process.env['ZAI_API_KEY']) {
         authType = AuthType.USE_GLM;
         void settings.setValue(
           SettingScope.User,

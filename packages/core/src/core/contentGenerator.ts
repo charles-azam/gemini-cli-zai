@@ -57,6 +57,7 @@ export type ContentGeneratorConfig = {
   proxy?: string;
   glmEndpoint?: string;
   glmClearThinking?: boolean;
+  glmDisableThinking?: boolean;
 };
 
 export async function createContentGeneratorConfig(
@@ -75,7 +76,6 @@ export async function createContentGeneratorConfig(
   const googleCloudLocation = process.env['GOOGLE_CLOUD_LOCATION'] || undefined;
   const glmApiKey =
     process.env['ZAI_API_KEY'] ||
-    process.env['ZAI_API_KEY'] ||
     (await loadApiKey(AuthType.USE_GLM)) ||
     undefined;
 
@@ -85,6 +85,7 @@ export async function createContentGeneratorConfig(
   };
   contentGeneratorConfig.glmEndpoint = config.getGlmEndpoint?.();
   contentGeneratorConfig.glmClearThinking = config.getGlmClearThinking?.();
+  contentGeneratorConfig.glmDisableThinking = config.getGlmDisableThinking?.();
 
   // If we are using Google auth or we are in Cloud Shell, there is nothing else to validate for now
   if (
@@ -188,6 +189,7 @@ export async function createContentGenerator(
           process.env['ZAI_API_BASE_URL'] ||
           undefined,
         clearThinking: config.glmClearThinking ?? false,
+        thinkingEnabled: !(config.glmDisableThinking ?? false),
         extraHeaders: externalHeaders,
       });
       return new LoggingContentGenerator(glmGenerator, gcConfig);

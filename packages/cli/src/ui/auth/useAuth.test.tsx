@@ -13,11 +13,12 @@ import {
   afterEach,
   type Mock,
 } from 'vitest';
-import { renderHook } from '../../test-utils/render.js';
+import { createMockSettings, renderHook } from '../../test-utils/render.js';
 import { useAuthCommand, validateAuthMethodWithSettings } from './useAuth.js';
 import { AuthType, type Config } from '@google/gemini-cli-core';
 import { AuthState } from '../types.js';
 import type { LoadedSettings } from '../../config/settings.js';
+import { SettingScope } from '../../config/settings.js';
 import { waitFor } from '../../test-utils/async.js';
 
 // Mock dependencies
@@ -41,7 +42,6 @@ describe('useAuth', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     delete process.env['GEMINI_API_KEY'];
-    delete process.env['ZAI_API_KEY'];
     delete process.env['ZAI_API_KEY'];
     delete process.env['GEMINI_DEFAULT_AUTH_TYPE'];
   });
@@ -143,15 +143,13 @@ describe('useAuth', () => {
     } as unknown as Config;
 
     const createSettings = (selectedType?: AuthType) =>
-      ({
-        merged: {
-          security: {
-            auth: {
-              selectedType,
-            },
+      createMockSettings({
+        security: {
+          auth: {
+            selectedType,
           },
         },
-      }) as LoadedSettings;
+      });
 
     it('should initialize with Unauthenticated state', () => {
       const { result } = renderHook(() =>
@@ -187,17 +185,20 @@ describe('useAuth', () => {
       });
     });
 
-    it('should set error if GLM env key exists and no auth type selected', async () => {
+    it('should auto-select GLM if ZAI_API_KEY is set and no auth type selected', async () => {
       process.env['ZAI_API_KEY'] = 'glm-key';
-      const { result } = renderHook(() =>
-        useAuthCommand(createSettings(undefined), mockConfig),
-      );
+      const settings = createSettings(undefined);
+      const setValueSpy = vi.spyOn(settings, 'setValue');
+      const { result } = renderHook(() => useAuthCommand(settings, mockConfig));
 
       await waitFor(() => {
-        expect(result.current.authError).toContain(
-          'Existing API key detected (ZAI_API_KEY)',
+        expect(setValueSpy).toHaveBeenCalledWith(
+          SettingScope.User,
+          'security.auth.selectedType',
+          AuthType.USE_GLM,
         );
-        expect(result.current.authState).toBe(AuthState.Updating);
+        expect(mockConfig.refreshAuth).toHaveBeenCalledWith(AuthType.USE_GLM);
+        expect(result.current.authState).toBe(AuthState.Authenticated);
       });
     });
 

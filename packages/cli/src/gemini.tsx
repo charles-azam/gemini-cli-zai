@@ -358,7 +358,7 @@ export async function main() {
     ) {
       settings.setValue(
         SettingScope.User,
-        'selectedAuthType',
+        'security.auth.selectedType',
         AuthType.COMPUTE_ADC,
       );
     }
@@ -366,7 +366,11 @@ export async function main() {
 
   // Override to GLM auth if ZAI_API_KEY is set
   if (process.env['ZAI_API_KEY']) {
-    settings.setValue(SettingScope.User, 'selectedAuthType', AuthType.USE_GLM);
+    settings.setValue(
+      SettingScope.User,
+      'security.auth.selectedType',
+      AuthType.USE_GLM,
+    );
   }
 
   const partialConfig = await loadCliConfig(settings.merged, sessionId, argv, {
