@@ -75,7 +75,6 @@ export async function createContentGeneratorConfig(
   const googleCloudLocation = process.env['GOOGLE_CLOUD_LOCATION'] || undefined;
   const glmApiKey =
     process.env['ZAI_API_KEY'] ||
-    process.env['ZAI_API_KEY'] ||
     (await loadApiKey(AuthType.USE_GLM)) ||
     undefined;
 
