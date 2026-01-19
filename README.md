@@ -42,9 +42,14 @@ CLI overrides (no settings file needed):
 ```bash
 gemini --model glm-4.7 \
   --zai-endpoint https://api.z.ai/api/coding/paas/v4/chat/completions \
-  --zai-clear-thinking \
-  --zai-disable-thinking
 ```
+
+Although not recommended you can use these options:
+```
+  --zai-clear-thinking \ # Z.ai recommends to disable clear thinking
+  --zai-disable-thinking # Z.ai recommends to enable thinking
+```
+
 
 `--zai-model` is an alias for `--model`.
 
