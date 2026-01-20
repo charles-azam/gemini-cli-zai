@@ -81,25 +81,13 @@ When GLM auth is active, the `google_web_search` tool is routed through Z.ai's
 web search in chat and returns Z.ai sources in the tool output. When using
 Gemini auth, the existing Google Search integration is used instead.
 
-## Installation (local)
+## Installation
 
 This fork does not collide with Gemini CLI settings because it uses a separate
 config directory (`.gemini-cli-zai`) and distinct API key storage entries. The
 CLI binary is published as `gemini-cli-zai` to avoid command name collisions.
 
-### Install from GitHub (npm)
-
-```bash
-npm install -g github:charles-azam/gemini-cli-zai#<tag>
-```
-
-Run it with:
-
-```bash
-gemini-cli-zai --version
-```
-
-### Install from GitHub Releases (no local build)
+### Install from build (GitHub Releases)
 
 1. Download the latest release archive:
 
@@ -108,17 +96,21 @@ curl -L -o gemini-cli-zai-bundle.tar.gz \
   https://github.com/charles-azam/gemini-cli-zai/releases/latest/download/gemini-cli-zai-bundle.tar.gz
 ```
 
-2. Extract and run:
+2. Extract and create an alias (use `.bashrc` if you use bash):
 
 ```bash
 tar -xzf gemini-cli-zai-bundle.tar.gz
-node bundle/gemini.js --version
+echo 'alias gemini-cli-zai="node $(pwd)/bundle/gemini.js"' >> ~/.zshrc
+source ~/.zshrc
+gemini-cli-zai --version
 ```
+
+### Install from source
 
 1. Clone the repo and install dependencies:
 
 ```bash
-git clone https://github.com/<your-org>/gemini-cli-zai.git
+git clone https://github.com/charles-azam/gemini-cli-zai.git
 cd gemini-cli-zai
 npm ci
 ```
@@ -130,26 +122,10 @@ npm run build
 npm run bundle
 ```
 
-3. Map a shortcut to the bundled CLI (example for zsh):
+3. Create an alias (use `.bashrc` if you use bash):
 
 ```bash
 echo 'alias gemini-cli-zai="node /path/to/gemini-cli-zai/bundle/gemini.js"' >> ~/.zshrc
 source ~/.zshrc
-```
-
-Alternative: (example for bash):
-
-```bash
-echo 'alias gemini-cli-zai="node /path/to/gemini-cli-zai/bundle/gemini.js"' >> ~/.bashrc
-source ~/.bashrc
-```
-
-Alternative: create a wrapper script (no alias required):
-
-```bash
-cat > ~/bin/gemini-cli-zai <<'EOF'
-#!/usr/bin/env bash
-exec node /path/to/gemini-cli-zai/bundle/gemini.js "$@"
-EOF
-chmod +x ~/bin/gemini-cli-zai
+gemini-cli-zai --version
 ```

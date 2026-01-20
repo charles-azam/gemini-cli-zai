@@ -16,6 +16,7 @@ import {
   setGeminiMdFilename as setServerGeminiMdFilename,
   getCurrentGeminiMdFilename,
   ApprovalMode,
+  AuthType,
   DEFAULT_GEMINI_MODEL_AUTO,
   DEFAULT_GEMINI_EMBEDDING_MODEL,
   DEFAULT_FILE_FILTERING_OPTIONS,
@@ -652,9 +653,14 @@ export async function loadCliConfig(
   );
   policyEngineConfig.nonInteractive = !interactive;
 
-  const defaultModel = settings.general?.previewFeatures
-    ? PREVIEW_GEMINI_MODEL_AUTO
-    : DEFAULT_GEMINI_MODEL_AUTO;
+  const isGlmAuth =
+    settings.security?.auth?.selectedType === AuthType.USE_GLM ||
+    (!settings.security?.auth?.selectedType && process.env['ZAI_API_KEY']);
+  const defaultModel = isGlmAuth
+    ? 'glm-4.7'
+    : settings.general?.previewFeatures
+      ? PREVIEW_GEMINI_MODEL_AUTO
+      : DEFAULT_GEMINI_MODEL_AUTO;
   const specifiedModel =
     argv.model ||
     argv.zaiModel ||
