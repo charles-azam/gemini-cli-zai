@@ -105,6 +105,15 @@ source ~/.zshrc
 gemini-cli-zai --version
 ```
 
+Alternative (useful for Docker/CI): run the install script to create a
+`gemini-cli-zai` executable in `/usr/local/bin`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/charles-azam/gemini-cli-zai/main/scripts/install-release.sh -o /tmp/install-release.sh
+bash /tmp/install-release.sh
+rm /tmp/install-release.sh
+```
+
 ### Install from source
 
 1. Clone the repo and install dependencies:
