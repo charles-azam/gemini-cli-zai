@@ -14,6 +14,12 @@ import { theme } from '../../semantic-colors.js';
 import type { TextBuffer } from './text-buffer.js';
 import { cpSlice, cpIndexToOffset } from '../../utils/textUtils.js';
 
+type CursorTextProps = React.ComponentProps<typeof Text> & {
+  terminalCursorFocus?: boolean;
+  terminalCursorPosition?: number;
+};
+const CursorText = Text as React.FC<CursorTextProps>;
+
 export interface TextInputProps {
   buffer: TextBuffer;
   placeholder?: string;
@@ -64,10 +70,10 @@ export function TextInput({
     return (
       <Box>
         {focus ? (
-          <Text terminalCursorFocus={focus} terminalCursorPosition={0}>
+          <CursorText terminalCursorFocus={focus} terminalCursorPosition={0}>
             {chalk.inverse(placeholder[0] || ' ')}
             <Text color={theme.text.secondary}>{placeholder.slice(1)}</Text>
-          </Text>
+          </CursorText>
         ) : (
           <Text color={theme.text.secondary}>{placeholder}</Text>
         )}
@@ -96,7 +102,7 @@ export function TextInput({
 
         return (
           <Box key={idx} height={1}>
-            <Text
+            <CursorText
               terminalCursorFocus={isCursorLine}
               terminalCursorPosition={cpIndexToOffset(
                 lineText,
@@ -104,7 +110,7 @@ export function TextInput({
               )}
             >
               {lineDisplay}
-            </Text>
+            </CursorText>
           </Box>
         );
       })}

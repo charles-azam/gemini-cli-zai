@@ -18,6 +18,7 @@ import {
   ModelSlashCommandEvent,
   logModelSlashCommand,
   getDisplayString,
+  AuthType,
 } from '@google/gemini-cli-core';
 import { useKeypress } from '../hooks/useKeypress.js';
 import { theme } from '../semantic-colors.js';
@@ -29,6 +30,8 @@ interface ModelDialogProps {
   onClose: () => void;
 }
 
+const GLM_DEFAULT_MODELS = ['glm-4.7'];
+
 export function ModelDialog({ onClose }: ModelDialogProps): React.JSX.Element {
   const config = useContext(ConfigContext);
   const [view, setView] = useState<'main' | 'manual'>('main');
@@ -37,22 +40,29 @@ export function ModelDialog({ onClose }: ModelDialogProps): React.JSX.Element {
   // Determine the Preferred Model (read once when the dialog opens).
   const preferredModel = config?.getModel() || DEFAULT_GEMINI_MODEL_AUTO;
 
+  const currentAuthType = config?.getContentGeneratorConfig()?.authType;
+  const isGlmAuth = currentAuthType === AuthType.USE_GLM;
+
   const shouldShowPreviewModels =
-    config?.getPreviewFeatures() && config.getHasAccessToPreviewModel();
+    !isGlmAuth &&
+    config?.getPreviewFeatures() &&
+    config.getHasAccessToPreviewModel();
 
   const manualModelSelected = useMemo(() => {
-    const manualModels = [
-      DEFAULT_GEMINI_MODEL,
-      DEFAULT_GEMINI_FLASH_MODEL,
-      DEFAULT_GEMINI_FLASH_LITE_MODEL,
-      PREVIEW_GEMINI_MODEL,
-      PREVIEW_GEMINI_FLASH_MODEL,
-    ];
+    const manualModels = isGlmAuth
+      ? GLM_DEFAULT_MODELS
+      : [
+          DEFAULT_GEMINI_MODEL,
+          DEFAULT_GEMINI_FLASH_MODEL,
+          DEFAULT_GEMINI_FLASH_LITE_MODEL,
+          PREVIEW_GEMINI_MODEL,
+          PREVIEW_GEMINI_FLASH_MODEL,
+        ];
     if (manualModels.includes(preferredModel)) {
       return preferredModel;
     }
     return '';
-  }, [preferredModel]);
+  }, [preferredModel, isGlmAuth]);
 
   useKeypress(
     (key) => {
@@ -74,6 +84,25 @@ export function ModelDialog({ onClose }: ModelDialogProps): React.JSX.Element {
   );
 
   const mainOptions = useMemo(() => {
+    if (isGlmAuth) {
+      return [
+        {
+          value: GLM_DEFAULT_MODELS[0],
+          title: GLM_DEFAULT_MODELS[0],
+          description: 'GLM 4.7 reasoning model',
+          key: GLM_DEFAULT_MODELS[0],
+        },
+        {
+          value: 'Manual',
+          title: manualModelSelected
+            ? `Manual (${manualModelSelected})`
+            : 'Manual',
+          description: 'Manually enter a GLM model name',
+          key: 'Manual',
+        },
+      ];
+    }
+
     const list = [
       {
         value: DEFAULT_GEMINI_MODEL_AUTO,
@@ -102,9 +131,17 @@ export function ModelDialog({ onClose }: ModelDialogProps): React.JSX.Element {
       });
     }
     return list;
-  }, [shouldShowPreviewModels, manualModelSelected]);
+  }, [shouldShowPreviewModels, manualModelSelected, isGlmAuth]);
 
   const manualOptions = useMemo(() => {
+    if (isGlmAuth) {
+      return GLM_DEFAULT_MODELS.map((model) => ({
+        value: model,
+        title: model,
+        key: model,
+      }));
+    }
+
     const list = [
       {
         value: DEFAULT_GEMINI_MODEL,
@@ -138,7 +175,7 @@ export function ModelDialog({ onClose }: ModelDialogProps): React.JSX.Element {
       );
     }
     return list;
-  }, [shouldShowPreviewModels]);
+  }, [shouldShowPreviewModels, isGlmAuth]);
 
   const options = view === 'main' ? mainOptions : manualOptions;
 

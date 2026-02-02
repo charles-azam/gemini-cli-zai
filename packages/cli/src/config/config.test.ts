@@ -14,6 +14,7 @@ import {
   WRITE_FILE_TOOL_NAME,
   EDIT_TOOL_NAME,
   WEB_FETCH_TOOL_NAME,
+  WEB_SEARCH_TOOL_NAME,
   type ExtensionLoader,
   debugLogger,
   ApprovalMode,
@@ -1869,6 +1870,18 @@ describe('loadCliConfig tool exclusions', () => {
       argv,
     );
     expect(config.getExcludeTools()).not.toContain(WEB_FETCH_TOOL_NAME);
+  });
+
+  it('should exclude web-search when --no-search is set', async () => {
+    process.stdin.isTTY = true;
+    process.argv = ['node', 'script.js', '--no-search'];
+    const argv = await parseArguments(createTestMergedSettings());
+    const config = await loadCliConfig(
+      createTestMergedSettings(),
+      'test-session',
+      argv,
+    );
+    expect(config.getExcludeTools()).toContain(WEB_SEARCH_TOOL_NAME);
   });
 
   it('should not exclude shell tool in non-interactive mode when --allowed-tools="run_shell_command" is set', async () => {

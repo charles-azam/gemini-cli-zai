@@ -1,6 +1,6 @@
 {
-  "name": "@google/gemini-cli",
-  "version": "0.28.0-nightly.20260128.adc8e11bb",
+  "name": "@charles-azam/gemini-cli-zai",
+  "version": "0.26.0-nightly.20260115.6cb3ae4e0",
   "engines": {
     "node": ">=20.0.0"
   },
@@ -71,7 +71,7 @@
     }
   },
   "bin": {
-    "gemini": "bundle/gemini.js"
+    "gemini-cli-zai": "bundle/gemini.js"
   },
   "files": [
     "bundle/",

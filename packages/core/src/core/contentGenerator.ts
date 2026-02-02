@@ -16,6 +16,7 @@ import { GoogleGenAI } from '@google/genai';
 import { createCodeAssistContentGenerator } from '../code_assist/codeAssist.js';
 import type { Config } from '../config/config.js';
 import { loadApiKey } from './apiKeyCredentialStorage.js';
+import { AuthType } from './authTypes.js';
 
 import type { UserTierId } from '../code_assist/types.js';
 import { LoggingContentGenerator } from './loggingContentGenerator.js';
@@ -24,6 +25,7 @@ import { FakeContentGenerator } from './fakeContentGenerator.js';
 import { parseCustomHeaders } from '../utils/customHeaderUtils.js';
 import { RecordingContentGenerator } from './recordingContentGenerator.js';
 import { getVersion, resolveModel } from '../../index.js';
+import { GlmContentGenerator } from './glmContentGenerator.js';
 
 /**
  * Interface abstracting the core functionalities for generating content and counting tokens.
@@ -48,19 +50,16 @@ export interface ContentGenerator {
   userTierName?: string;
 }
 
-export enum AuthType {
-  LOGIN_WITH_GOOGLE = 'oauth-personal',
-  USE_GEMINI = 'gemini-api-key',
-  USE_VERTEX_AI = 'vertex-ai',
-  LEGACY_CLOUD_SHELL = 'cloud-shell',
-  COMPUTE_ADC = 'compute-default-credentials',
-}
+export { AuthType };
 
 export type ContentGeneratorConfig = {
   apiKey?: string;
   vertexai?: boolean;
   authType?: AuthType;
   proxy?: string;
+  glmEndpoint?: string;
+  glmClearThinking?: boolean;
+  glmDisableThinking?: boolean;
 };
 
 export async function createContentGeneratorConfig(
@@ -68,18 +67,27 @@ export async function createContentGeneratorConfig(
   authType: AuthType | undefined,
 ): Promise<ContentGeneratorConfig> {
   const geminiApiKey =
-    process.env['GEMINI_API_KEY'] || (await loadApiKey()) || undefined;
+    process.env['GEMINI_API_KEY'] ||
+    (await loadApiKey(AuthType.USE_GEMINI)) ||
+    undefined;
   const googleApiKey = process.env['GOOGLE_API_KEY'] || undefined;
   const googleCloudProject =
     process.env['GOOGLE_CLOUD_PROJECT'] ||
     process.env['GOOGLE_CLOUD_PROJECT_ID'] ||
     undefined;
   const googleCloudLocation = process.env['GOOGLE_CLOUD_LOCATION'] || undefined;
+  const glmApiKey =
+    process.env['ZAI_API_KEY'] ||
+    (await loadApiKey(AuthType.USE_GLM)) ||
+    undefined;
 
   const contentGeneratorConfig: ContentGeneratorConfig = {
     authType,
     proxy: config?.getProxy(),
   };
+  contentGeneratorConfig.glmEndpoint = config.getGlmEndpoint?.();
+  contentGeneratorConfig.glmClearThinking = config.getGlmClearThinking?.();
+  contentGeneratorConfig.glmDisableThinking = config.getGlmDisableThinking?.();
 
   // If we are using Google auth or we are in Cloud Shell, there is nothing else to validate for now
   if (
@@ -93,6 +101,12 @@ export async function createContentGeneratorConfig(
     contentGeneratorConfig.apiKey = geminiApiKey;
     contentGeneratorConfig.vertexai = false;
 
+    return contentGeneratorConfig;
+  }
+
+  if (authType === AuthType.USE_GLM && glmApiKey) {
+    contentGeneratorConfig.apiKey = glmApiKey;
+    contentGeneratorConfig.vertexai = false;
     return contentGeneratorConfig;
   }
 
@@ -138,6 +152,8 @@ export async function createContentGenerator(
       ...customHeadersMap,
       'User-Agent': userAgent,
     };
+    const externalHeaders: Record<string, string> = { ...baseHeaders };
+    delete externalHeaders['Authorization'];
 
     if (
       apiKeyAuthMechanism === 'bearer' &&
@@ -161,6 +177,25 @@ export async function createContentGenerator(
         ),
         gcConfig,
       );
+    }
+
+    if (config.authType === AuthType.USE_GLM) {
+      if (!config.apiKey) {
+        throw new Error('GLM API key is not configured.');
+      }
+      const glmGenerator = new GlmContentGenerator({
+        apiKey: config.apiKey,
+        userAgent,
+        endpoint:
+          config.glmEndpoint ||
+          process.env['GLM_API_BASE_URL'] ||
+          process.env['ZAI_API_BASE_URL'] ||
+          undefined,
+        clearThinking: config.glmClearThinking ?? false,
+        thinkingEnabled: !(config.glmDisableThinking ?? false),
+        extraHeaders: externalHeaders,
+      });
+      return new LoggingContentGenerator(glmGenerator, gcConfig);
     }
 
     if (

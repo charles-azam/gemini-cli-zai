@@ -393,6 +393,9 @@ export interface ConfigParameters {
   includeDirectories?: string[];
   bugCommand?: BugCommandSettings;
   model: string;
+  glmEndpoint?: string;
+  glmClearThinking?: boolean;
+  glmDisableThinking?: boolean;
   maxSessionTurns?: number;
   experimentalZedIntegration?: boolean;
   listSessions?: boolean;
@@ -531,6 +534,9 @@ export class Config {
   private readonly cwd: string;
   private readonly bugCommand: BugCommandSettings | undefined;
   private model: string;
+  private readonly glmEndpoint: string | undefined;
+  private readonly glmClearThinking: boolean;
+  private readonly glmDisableThinking: boolean;
   private previewFeatures: boolean | undefined;
   private hasAccessToPreviewModel: boolean = false;
   private readonly noBrowser: boolean;
@@ -697,6 +703,9 @@ export class Config {
     this.fileDiscoveryService = params.fileDiscoveryService ?? null;
     this.bugCommand = params.bugCommand;
     this.model = params.model;
+    this.glmEndpoint = params.glmEndpoint;
+    this.glmClearThinking = params.glmClearThinking ?? false;
+    this.glmDisableThinking = params.glmDisableThinking ?? false;
     this._activeModel = params.model;
     this.enableAgents = params.enableAgents ?? false;
     this.agents = params.agents ?? {};
@@ -951,10 +960,13 @@ export class Config {
 
     // Vertex and Genai have incompatible encryption and sending history with
     // thoughtSignature from Genai to Vertex will fail, we need to strip them
-    if (
-      this.contentGeneratorConfig?.authType === AuthType.USE_GEMINI &&
-      authMethod !== AuthType.USE_GEMINI
-    ) {
+    const previousAuthType = this.contentGeneratorConfig?.authType;
+    const wasGeminiLike =
+      previousAuthType === AuthType.USE_GEMINI ||
+      previousAuthType === AuthType.USE_GLM;
+    const switchingAwayFromGeminiLike =
+      wasGeminiLike && authMethod !== previousAuthType;
+    if (switchingAwayFromGeminiLike) {
       // Restore the conversation history to the new client
       this.geminiClient.stripThoughtsFromHistory();
     }
@@ -1002,7 +1014,8 @@ export class Config {
     const authType = this.contentGeneratorConfig.authType;
     if (
       authType === AuthType.USE_GEMINI ||
-      authType === AuthType.USE_VERTEX_AI
+      authType === AuthType.USE_VERTEX_AI ||
+      authType === AuthType.USE_GLM
     ) {
       this.setHasAccessToPreviewModel(true);
     }
@@ -1627,6 +1640,18 @@ export class Config {
 
   getProxy(): string | undefined {
     return this.proxy;
+  }
+
+  getGlmEndpoint(): string | undefined {
+    return this.glmEndpoint;
+  }
+
+  getGlmClearThinking(): boolean {
+    return this.glmClearThinking;
+  }
+
+  getGlmDisableThinking(): boolean {
+    return this.glmDisableThinking;
   }
 
   getWorkingDir(): string {

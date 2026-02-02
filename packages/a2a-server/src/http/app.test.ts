@@ -5,11 +5,8 @@
  */
 
 import type { Config } from '@google/gemini-cli-core';
-import {
-  GeminiEventType,
-  ApprovalMode,
-  type ToolCallConfirmationDetails,
-} from '@google/gemini-cli-core';
+import { GeminiEventType, ApprovalMode } from '@google/gemini-cli-core';
+import type { ToolCallConfirmationDetails } from '@google/gemini-cli-core/src/tools/tools.js';
 import type {
   TaskStatusUpdateEvent,
   SendStreamingMessageSuccessResponse,

@@ -16,6 +16,7 @@ import {
   DEFAULT_GEMINI_FLASH_LITE_MODEL,
   PREVIEW_GEMINI_MODEL,
   PREVIEW_GEMINI_MODEL_AUTO,
+  AuthType,
 } from '@google/gemini-cli-core';
 import type { Config, ModelSlashCommandEvent } from '@google/gemini-cli-core';
 
@@ -45,12 +46,16 @@ describe('<ModelDialog />', () => {
   const mockGetPreviewFeatures = vi.fn();
   const mockOnClose = vi.fn();
   const mockGetHasAccessToPreviewModel = vi.fn();
+  const mockGetContentGeneratorConfig = vi.fn();
 
   interface MockConfig extends Partial<Config> {
     setModel: (model: string, isTemporary?: boolean) => void;
     getModel: () => string;
     getPreviewFeatures: () => boolean;
     getHasAccessToPreviewModel: () => boolean;
+    getContentGeneratorConfig: () => ReturnType<
+      Config['getContentGeneratorConfig']
+    >;
   }
 
   const mockConfig: MockConfig = {
@@ -58,6 +63,7 @@ describe('<ModelDialog />', () => {
     getModel: mockGetModel,
     getPreviewFeatures: mockGetPreviewFeatures,
     getHasAccessToPreviewModel: mockGetHasAccessToPreviewModel,
+    getContentGeneratorConfig: mockGetContentGeneratorConfig,
   };
 
   beforeEach(() => {
@@ -65,6 +71,9 @@ describe('<ModelDialog />', () => {
     mockGetModel.mockReturnValue(DEFAULT_GEMINI_MODEL_AUTO);
     mockGetPreviewFeatures.mockReturnValue(false);
     mockGetHasAccessToPreviewModel.mockReturnValue(false);
+    mockGetContentGeneratorConfig.mockReturnValue({
+      authType: AuthType.USE_GEMINI,
+    } as ReturnType<Config['getContentGeneratorConfig']>);
 
     // Default implementation for getDisplayString
     mockGetDisplayString.mockImplementation((val: string) => {
@@ -137,6 +146,40 @@ describe('<ModelDialog />', () => {
     await waitForUpdate();
 
     expect(lastFrame()).toContain(PREVIEW_GEMINI_MODEL);
+  });
+
+  it('shows GLM models when GLM auth is active', async () => {
+    mockGetContentGeneratorConfig.mockReturnValue({
+      authType: AuthType.USE_GLM,
+    } as ReturnType<Config['getContentGeneratorConfig']>);
+    mockGetModel.mockReturnValue('glm-4.7');
+    const { lastFrame, stdin } = renderComponent();
+
+    expect(lastFrame()).toContain('glm-4.7');
+    expect(lastFrame()).not.toContain('Auto (Gemini 2.5)');
+
+    // Move to Manual and ensure GLM model is listed
+    stdin.write('\u001B[B');
+    await waitForUpdate();
+    stdin.write('\r');
+    await waitForUpdate();
+
+    expect(lastFrame()).toContain('glm-4.7');
+    expect(lastFrame()).not.toContain(DEFAULT_GEMINI_MODEL);
+  });
+
+  it('selects GLM model from main view', async () => {
+    mockGetContentGeneratorConfig.mockReturnValue({
+      authType: AuthType.USE_GLM,
+    } as ReturnType<Config['getContentGeneratorConfig']>);
+    mockGetModel.mockReturnValue('glm-4.7');
+    const { stdin } = renderComponent();
+
+    stdin.write('\r');
+    await waitForUpdate();
+
+    expect(mockSetModel).toHaveBeenCalledWith('glm-4.7', true);
+    expect(mockOnClose).toHaveBeenCalled();
   });
 
   it('sets model and closes when a model is selected in "main" view', async () => {

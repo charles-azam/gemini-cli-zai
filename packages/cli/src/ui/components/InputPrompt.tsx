@@ -66,6 +66,12 @@ import { useMouse, type MouseEvent } from '../contexts/MouseContext.js';
 import { useUIActions } from '../contexts/UIActionsContext.js';
 import { useAlternateBuffer } from '../hooks/useAlternateBuffer.js';
 
+type CursorTextProps = React.ComponentProps<typeof Text> & {
+  terminalCursorFocus?: boolean;
+  terminalCursorPosition?: number;
+};
+const CursorText = Text as React.FC<CursorTextProps>;
+
 /**
  * Returns if the terminal can be trusted to handle paste events atomically
  * rather than potentially sending multiple paste events separated by line
@@ -1257,7 +1263,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
           <Box flexGrow={1} flexDirection="column" ref={innerBoxRef}>
             {buffer.text.length === 0 && placeholder ? (
               showCursor ? (
-                <Text
+                <CursorText
                   terminalCursorFocus={showCursor}
                   terminalCursorPosition={0}
                 >
@@ -1265,7 +1271,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                   <Text color={theme.text.secondary}>
                     {placeholder.slice(1)}
                   </Text>
-                </Text>
+                </CursorText>
               ) : (
                 <Text color={theme.text.secondary}>{placeholder}</Text>
               )
@@ -1381,7 +1387,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
 
                   return (
                     <Box key={`line-${visualIdxInRenderedSet}`} height={1}>
-                      <Text
+                      <CursorText
                         terminalCursorFocus={showCursor && isOnCursorLine}
                         terminalCursorPosition={cpIndexToOffset(
                           lineText,
@@ -1396,7 +1402,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                             {currentLineGhost}
                           </Text>
                         )}
-                      </Text>
+                      </CursorText>
                     </Box>
                   );
                 })

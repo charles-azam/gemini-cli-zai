@@ -473,6 +473,10 @@ describe('gemini.tsx main function kitty protocol', () => {
     );
     vi.mocked(parseArguments).mockResolvedValue({
       model: undefined,
+      zaiModel: undefined,
+      zaiEndpoint: undefined,
+      zaiClearThinking: undefined,
+      zaiDisableThinking: undefined,
       sandbox: undefined,
       debug: undefined,
       prompt: undefined,
@@ -492,6 +496,7 @@ describe('gemini.tsx main function kitty protocol', () => {
       listSessions: undefined,
       deleteSession: undefined,
       outputFormat: undefined,
+      search: undefined,
       fakeResponses: undefined,
       recordResponses: undefined,
       rawOutput: undefined,

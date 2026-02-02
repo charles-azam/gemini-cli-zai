@@ -11,7 +11,7 @@ import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-export const GEMINI_DIR = '.gemini';
+export const GEMINI_DIR = '.gemini-cli-zai';
 export const GOOGLE_ACCOUNTS_FILENAME = 'google_accounts.json';
 
 /**

@@ -16,6 +16,7 @@ import {
   setGeminiMdFilename as setServerGeminiMdFilename,
   getCurrentGeminiMdFilename,
   ApprovalMode,
+  AuthType,
   DEFAULT_GEMINI_MODEL_AUTO,
   DEFAULT_GEMINI_EMBEDDING_MODEL,
   DEFAULT_FILE_FILTERING_OPTIONS,
@@ -31,6 +32,7 @@ import {
   debugLogger,
   loadServerHierarchicalMemory,
   WEB_FETCH_TOOL_NAME,
+  WEB_SEARCH_TOOL_NAME,
   getVersion,
   PREVIEW_GEMINI_MODEL_AUTO,
   type HookDefinition,
@@ -64,6 +66,10 @@ import { runExitCleanup } from '../utils/cleanup.js';
 export interface CliArgs {
   query: string | undefined;
   model: string | undefined;
+  zaiModel: string | undefined;
+  zaiEndpoint: string | undefined;
+  zaiClearThinking: boolean | undefined;
+  zaiDisableThinking: boolean | undefined;
   sandbox: boolean | string | undefined;
   debug: boolean | undefined;
   prompt: string | undefined;
@@ -83,6 +89,7 @@ export interface CliArgs {
   screenReader: boolean | undefined;
   useWriteTodos: boolean | undefined;
   outputFormat: string | undefined;
+  search: boolean | undefined;
   fakeResponses: string | undefined;
   recordResponses: string | undefined;
   startupMessages?: string[];
@@ -119,6 +126,25 @@ export async function parseArguments(
           type: 'string',
           nargs: 1,
           description: `Model`,
+        })
+        .option('zai-model', {
+          type: 'string',
+          nargs: 1,
+          description: 'Z.ai model to use (alias for --model).',
+        })
+        .option('zai-endpoint', {
+          type: 'string',
+          nargs: 1,
+          description: 'Override the Z.ai chat completions endpoint.',
+        })
+        .option('zai-clear-thinking', {
+          type: 'boolean',
+          description:
+            'Clear Z.ai reasoning between turns when thinking is enabled.',
+        })
+        .option('zai-disable-thinking', {
+          type: 'boolean',
+          description: 'Disable Z.ai thinking to return direct answers.',
         })
         .option('prompt', {
           alias: 'p',
@@ -245,6 +271,11 @@ export async function parseArguments(
           nargs: 1,
           description: 'The format of the CLI output.',
           choices: ['text', 'json', 'stream-json'],
+        })
+        .option('search', {
+          type: 'boolean',
+          default: true,
+          description: 'Enable web search tools (use --no-search to disable).',
         })
         .option('fake-responses', {
           type: 'string',
@@ -595,6 +626,9 @@ export async function loadCliConfig(
 
   // In non-interactive mode, exclude tools that require a prompt.
   const extraExcludes: string[] = [];
+  if (argv.search === false) {
+    extraExcludes.push(WEB_SEARCH_TOOL_NAME);
+  }
   if (!interactive) {
     const defaultExcludes = [
       SHELL_TOOL_NAME,
@@ -654,11 +688,19 @@ export async function loadCliConfig(
   );
   policyEngineConfig.nonInteractive = !interactive;
 
-  const defaultModel = settings.general?.previewFeatures
-    ? PREVIEW_GEMINI_MODEL_AUTO
-    : DEFAULT_GEMINI_MODEL_AUTO;
+  const isGlmAuth =
+    settings.security?.auth?.selectedType === AuthType.USE_GLM ||
+    (!settings.security?.auth?.selectedType && process.env['ZAI_API_KEY']);
+  const defaultModel = isGlmAuth
+    ? 'glm-4.7'
+    : settings.general?.previewFeatures
+      ? PREVIEW_GEMINI_MODEL_AUTO
+      : DEFAULT_GEMINI_MODEL_AUTO;
   const specifiedModel =
-    argv.model || process.env['GEMINI_MODEL'] || settings.model?.name;
+    argv.model ||
+    argv.zaiModel ||
+    process.env['GEMINI_MODEL'] ||
+    settings.model?.name;
 
   const resolvedModel =
     specifiedModel === GEMINI_MODEL_ALIAS_AUTO
@@ -761,6 +803,11 @@ export async function loadCliConfig(
     experimentalJitContext: settings.experimental?.jitContext,
     noBrowser: !!process.env['NO_BROWSER'],
     summarizeToolOutput: settings.model?.summarizeToolOutput,
+    glmEndpoint: argv.zaiEndpoint ?? settings.model?.zai?.endpoint,
+    glmClearThinking:
+      argv.zaiClearThinking ?? settings.model?.zai?.clearThinking,
+    glmDisableThinking:
+      argv.zaiDisableThinking ?? settings.model?.zai?.disableThinking,
     ideMode,
     compressionThreshold: settings.model?.compressionThreshold,
     folderTrust,

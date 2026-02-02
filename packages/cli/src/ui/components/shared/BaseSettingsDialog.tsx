@@ -22,6 +22,12 @@ import {
 import { useKeypress, type Key } from '../../hooks/useKeypress.js';
 import { keyMatchers, Command } from '../../keyMatchers.js';
 
+type CursorTextProps = React.ComponentProps<typeof Text> & {
+  terminalCursorFocus?: boolean;
+  terminalCursorPosition?: number;
+};
+const CursorText = Text as React.FC<CursorTextProps>;
+
 /**
  * Represents a single item in the settings dialog.
  */
@@ -551,7 +557,7 @@ export function BaseSettingsDialog({
                       </Box>
                       <Box minWidth={3} />
                       <Box flexShrink={0}>
-                        <Text
+                        <CursorText
                           color={
                             isActive
                               ? theme.status.success
@@ -568,7 +574,7 @@ export function BaseSettingsDialog({
                           )}
                         >
                           {displayValue}
-                        </Text>
+                        </CursorText>
                       </Box>
                     </Box>
                   </Box>

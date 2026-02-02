@@ -9,7 +9,7 @@ import {
   createMockSettings,
 } from '../../test-utils/render.js';
 import { waitFor } from '../../test-utils/async.js';
-import { act, useState } from 'react';
+import { act, useState, type ComponentProps } from 'react';
 import type { InputPromptProps } from './InputPrompt.js';
 import { InputPrompt } from './InputPrompt.js';
 import type { TextBuffer } from './shared/text-buffer.js';
@@ -48,6 +48,11 @@ import { isLowColorDepth } from '../utils/terminalUtils.js';
 import { keyMatchers, Command } from '../keyMatchers.js';
 import type { Key } from '../hooks/useKeypress.js';
 
+type CursorTextProps = ComponentProps<typeof Text> & {
+  terminalCursorFocus?: boolean;
+  terminalCursorPosition?: number;
+};
+
 vi.mock('../hooks/useShellHistory.js');
 vi.mock('../hooks/useCommandCompletion.js');
 vi.mock('../hooks/useInputHistory.js');
@@ -69,6 +74,9 @@ vi.mock('ink', async (importOriginal) => {
     )),
   };
 });
+
+const getTextCalls = () =>
+  vi.mocked(Text).mock.calls as Array<[CursorTextProps, ...unknown[]]>;
 
 const mockSlashCommands: SlashCommand[] = [
   {
@@ -3440,7 +3448,7 @@ describe('InputPrompt', () => {
       });
 
       // Check Text calls from the LAST render
-      const textCalls = vi.mocked(Text).mock.calls;
+      const textCalls = getTextCalls();
       const cursorLineCall = [...textCalls]
         .reverse()
         .find((call) => call[0].terminalCursorFocus === true);
@@ -3469,7 +3477,7 @@ describe('InputPrompt', () => {
         expect(stdout.lastFrame()).toContain('👍hello');
       });
 
-      const textCalls = vi.mocked(Text).mock.calls;
+      const textCalls = getTextCalls();
       const cursorLineCall = [...textCalls]
         .reverse()
         .find((call) => call[0].terminalCursorFocus === true);
@@ -3498,7 +3506,7 @@ describe('InputPrompt', () => {
         expect(stdout.lastFrame()).toContain('😀😀😀');
       });
 
-      const textCalls = vi.mocked(Text).mock.calls;
+      const textCalls = getTextCalls();
       const cursorLineCall = [...textCalls]
         .reverse()
         .find((call) => call[0].terminalCursorFocus === true);
@@ -3531,7 +3539,7 @@ describe('InputPrompt', () => {
         expect(stdout.lastFrame()).toContain('hello 😀');
       });
 
-      const textCalls = vi.mocked(Text).mock.calls;
+      const textCalls = getTextCalls();
       const lineCalls = textCalls.filter(
         (call) => call[0].terminalCursorPosition !== undefined,
       );
@@ -3568,7 +3576,7 @@ describe('InputPrompt', () => {
         expect(stdout.lastFrame()).toContain('second line');
       });
 
-      const textCalls = vi.mocked(Text).mock.calls;
+      const textCalls = getTextCalls();
 
       // We look for the last set of line calls.
       // Line calls have terminalCursorPosition set.
@@ -3605,7 +3613,7 @@ describe('InputPrompt', () => {
         expect(stdout.lastFrame()).toContain('Type here');
       });
 
-      const textCalls = vi.mocked(Text).mock.calls;
+      const textCalls = getTextCalls();
       const cursorLineCall = [...textCalls]
         .reverse()
         .find((call) => call[0].terminalCursorFocus === true);
