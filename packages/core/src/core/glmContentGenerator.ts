@@ -102,6 +102,9 @@ interface GlmUsage {
   prompt_tokens?: number;
   completion_tokens?: number;
   total_tokens?: number;
+  prompt_tokens_details?: {
+    cached_tokens?: number;
+  };
   reasoning_tokens?: number;
   completion_tokens_details?: {
     reasoning_tokens?: number;
@@ -198,6 +201,10 @@ function toUsageMetadata(
     candidatesTokenCount: usage.completion_tokens,
     totalTokenCount: usage.total_tokens,
   };
+  if (usage.prompt_tokens_details?.cached_tokens !== undefined) {
+    usageMetadata.cachedContentTokenCount =
+      usage.prompt_tokens_details.cached_tokens;
+  }
   const reasoningTokens =
     usage.reasoning_tokens ?? usage.completion_tokens_details?.reasoning_tokens;
   if (reasoningTokens !== undefined) {
@@ -463,7 +470,16 @@ export class GlmContentGenerator {
     if (toolChoice) {
       payload.tool_choice = toolChoice;
     }
-    const thinkingEnabled = this.options.thinkingEnabled ?? true;
+    let thinkingEnabled = this.options.thinkingEnabled ?? true;
+    if (thinkingEnabled) {
+      const thinkingConfig = request.config?.thinkingConfig;
+      if (
+        thinkingConfig?.includeThoughts === false ||
+        thinkingConfig?.thinkingBudget === 0
+      ) {
+        thinkingEnabled = false;
+      }
+    }
     if (thinkingEnabled) {
       payload.thinking = {
         type: 'enabled',

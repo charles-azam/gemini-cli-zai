@@ -35,6 +35,9 @@ describe('GlmContentGenerator', () => {
           prompt_tokens: 10,
           completion_tokens: 5,
           total_tokens: 15,
+          prompt_tokens_details: {
+            cached_tokens: 2,
+          },
           completion_tokens_details: {
             reasoning_tokens: 2,
           },
@@ -78,6 +81,7 @@ describe('GlmContentGenerator', () => {
     expect(fnCall?.functionCall?.name).toBe('do_work');
     expect(fnCall?.functionCall?.args).toEqual({ path: 'foo' });
     expect(response.usageMetadata?.promptTokenCount).toBe(10);
+    expect(response.usageMetadata?.cachedContentTokenCount).toBe(2);
     expect(response.usageMetadata?.thoughtsTokenCount).toBe(2);
     expect(response.functionCalls?.[0]?.name).toBe('do_work');
   });
@@ -151,6 +155,44 @@ describe('GlmContentGenerator', () => {
       model: 'glm-4.7',
       contents: [],
       config: {},
+    });
+
+    const requestInit = fetchMock.mock.calls[0]?.[1];
+    const rawBody =
+      typeof requestInit?.body === 'string' ? requestInit.body : '';
+    const parsedBody = rawBody ? JSON.parse(rawBody) : undefined;
+    expect(isRecord(parsedBody)).toBe(true);
+    if (isRecord(parsedBody)) {
+      expect(parsedBody['thinking']).toEqual({ type: 'disabled' });
+    }
+  });
+
+  it('disables thinking when thinkingConfig disables thoughts', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            finish_reason: 'stop',
+            index: 0,
+            message: {
+              content: 'Done',
+            },
+          },
+        ],
+      }),
+    } as unknown as Response);
+
+    const generator = new GlmContentGenerator(DEFAULT_OPTIONS);
+    await generator.generateContent({
+      model: 'glm-4.7',
+      contents: [],
+      config: {
+        thinkingConfig: {
+          includeThoughts: false,
+          thinkingBudget: 0,
+        },
+      },
     });
 
     const requestInit = fetchMock.mock.calls[0]?.[1];

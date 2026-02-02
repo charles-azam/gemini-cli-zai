@@ -55,7 +55,9 @@ Although not recommended you can use these options:
 
 Note: Z.ai thinking mode is requested by default in this fork. Use
 `--zai-disable-thinking` or `model.zai.disableThinking` to turn it off. Gemini
-`thinkingConfig` settings are not mapped.
+`thinkingConfig.includeThoughts` and `thinkingConfig.thinkingBudget: 0` are
+mapped to disable thinking for Z.ai requests (other thinkingConfig fields are
+not mapped).
 
 Example `settings.json`:
 

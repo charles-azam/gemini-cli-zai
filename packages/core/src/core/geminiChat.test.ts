@@ -135,6 +135,8 @@ describe('GeminiChat', () => {
         authType: 'oauth-personal',
         model: currentModel,
       })),
+      getGlmClearThinking: vi.fn().mockReturnValue(false),
+      getGlmDisableThinking: vi.fn().mockReturnValue(false),
       getModel: vi.fn().mockImplementation(() => currentModel),
       setModel: vi.fn().mockImplementation((m: string) => {
         currentModel = m;
@@ -565,6 +567,110 @@ describe('GeminiChat', () => {
       expect(modelTurn?.parts![0].text).toBe(
         'This is the visible text that should not be lost.',
       );
+    });
+
+    it('should preserve GLM thoughts in history when clearThinking is disabled', async () => {
+      vi.mocked(mockConfig.getContentGeneratorConfig).mockReturnValue({
+        authType: AuthType.USE_GLM,
+      });
+      vi.mocked(mockConfig.getGlmClearThinking).mockReturnValue(false);
+
+      const glmStream = (async function* () {
+        yield {
+          candidates: [
+            {
+              content: {
+                role: 'model',
+                parts: [
+                  { thought: true, text: 'Reasoning preserved.' },
+                  { text: 'Visible text.' },
+                ],
+              },
+              finishReason: 'STOP',
+            },
+          ],
+        } as unknown as GenerateContentResponse;
+      })();
+
+      vi.mocked(mockContentGenerator.generateContentStream).mockResolvedValue(
+        glmStream,
+      );
+
+      const stream = await chat.sendMessageStream(
+        { model: 'glm-4.7' },
+        'test message',
+        'prompt-id-glm-thoughts',
+        new AbortController().signal,
+      );
+      for await (const _ of stream) {
+        // Consume the stream to trigger history recording.
+      }
+
+      const history = chat.getHistory();
+      expect(history.length).toBe(2);
+
+      const modelTurn = history[1];
+      expect(modelTurn.role).toBe('model');
+      expect(modelTurn?.parts?.length).toBe(2);
+      expect(modelTurn?.parts?.[0].thought).toBe(true);
+      expect(modelTurn?.parts?.[0].text).toBe('Reasoning preserved.');
+      expect(modelTurn?.parts?.[1].text).toBe('Visible text.');
+    });
+
+    it('should drop GLM thoughts when thinkingConfig disables thoughts', async () => {
+      vi.mocked(mockConfig.getContentGeneratorConfig).mockReturnValue({
+        authType: AuthType.USE_GLM,
+      });
+      vi.mocked(
+        mockConfig.modelConfigService.getResolvedConfig,
+      ).mockReturnValue(
+        makeResolvedModelConfig('glm-4.7', {
+          thinkingConfig: {
+            includeThoughts: false,
+            thinkingBudget: 0,
+          },
+        }),
+      );
+
+      const glmStream = (async function* () {
+        yield {
+          candidates: [
+            {
+              content: {
+                role: 'model',
+                parts: [
+                  { thought: true, text: 'Do not keep this.' },
+                  { text: 'Visible text only.' },
+                ],
+              },
+              finishReason: 'STOP',
+            },
+          ],
+        } as unknown as GenerateContentResponse;
+      })();
+
+      vi.mocked(mockContentGenerator.generateContentStream).mockResolvedValue(
+        glmStream,
+      );
+
+      const stream = await chat.sendMessageStream(
+        { model: 'glm-4.7' },
+        'test message',
+        'prompt-id-glm-no-thoughts',
+        new AbortController().signal,
+      );
+      for await (const _ of stream) {
+        // Consume the stream to trigger history recording.
+      }
+
+      const history = chat.getHistory();
+      expect(history.length).toBe(2);
+
+      const modelTurn = history[1];
+      expect(modelTurn.role).toBe('model');
+      expect(modelTurn?.parts?.length).toBe(1);
+      expect(modelTurn?.parts?.[0].text).toBe('Visible text only.');
+      expect(modelTurn?.parts?.[0].thought).toBeUndefined();
     });
 
     it('should throw an error when a tool call is followed by an empty stream response', async () => {

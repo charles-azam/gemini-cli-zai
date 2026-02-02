@@ -21,6 +21,7 @@ import { createUserContent, FinishReason } from '@google/genai';
 import { retryWithBackoff, isRetryableError } from '../utils/retry.js';
 import type { ValidationRequiredError } from '../utils/googleQuotaErrors.js';
 import type { Config } from '../config/config.js';
+import { AuthType } from './authTypes.js';
 import {
   resolveModel,
   isGemini2Model,
@@ -112,6 +113,23 @@ export function isValidNonThoughtTextPart(part: Part): boolean {
     !part.inlineData &&
     !part.fileData
   );
+}
+
+function consolidateParts(parts: Part[]): Part[] {
+  const consolidatedParts: Part[] = [];
+  for (const part of parts) {
+    const lastPart = consolidatedParts[consolidatedParts.length - 1];
+    if (
+      lastPart?.text &&
+      isValidNonThoughtTextPart(lastPart) &&
+      isValidNonThoughtTextPart(part)
+    ) {
+      lastPart.text += part.text;
+    } else {
+      consolidatedParts.push(part);
+    }
+  }
+  return consolidatedParts;
 }
 
 function isValidContent(content: Content): boolean {
@@ -800,6 +818,10 @@ export class GeminiChat {
     originalRequest: GenerateContentParameters,
   ): AsyncGenerator<GenerateContentResponse> {
     const modelResponseParts: Part[] = [];
+    const visibleResponseParts: Part[] = [];
+    const preserveThoughts = this.shouldPreserveGlmThoughtsInHistory(
+      originalRequest.config,
+    );
 
     let hasToolCall = false;
     let finishReason: FinishReason | undefined;
@@ -823,9 +845,13 @@ export class GeminiChat {
             hasToolCall = true;
           }
 
-          modelResponseParts.push(
-            ...content.parts.filter((part) => !part.thought),
-          );
+          const nonThoughtParts = content.parts.filter((part) => !part.thought);
+          if (preserveThoughts) {
+            modelResponseParts.push(...content.parts);
+          } else {
+            modelResponseParts.push(...nonThoughtParts);
+          }
+          visibleResponseParts.push(...nonThoughtParts);
         }
       }
 
@@ -863,22 +889,10 @@ export class GeminiChat {
       }
     }
 
-    // String thoughts and consolidate text parts.
-    const consolidatedParts: Part[] = [];
-    for (const part of modelResponseParts) {
-      const lastPart = consolidatedParts[consolidatedParts.length - 1];
-      if (
-        lastPart?.text &&
-        isValidNonThoughtTextPart(lastPart) &&
-        isValidNonThoughtTextPart(part)
-      ) {
-        lastPart.text += part.text;
-      } else {
-        consolidatedParts.push(part);
-      }
-    }
+    const consolidatedParts = consolidateParts(modelResponseParts);
+    const consolidatedVisibleParts = consolidateParts(visibleResponseParts);
 
-    const responseText = consolidatedParts
+    const responseText = consolidatedVisibleParts
       .filter((part) => part.text)
       .map((part) => part.text)
       .join('')
@@ -923,6 +937,25 @@ export class GeminiChat {
     }
 
     this.history.push({ role: 'model', parts: consolidatedParts });
+  }
+
+  private shouldPreserveGlmThoughtsInHistory(
+    requestConfig?: GenerateContentConfig,
+  ): boolean {
+    const authType = this.config.getContentGeneratorConfig?.()?.authType;
+    if (authType !== AuthType.USE_GLM) {
+      return false;
+    }
+    if (this.config.getGlmDisableThinking?.()) {
+      return false;
+    }
+    if (
+      requestConfig?.thinkingConfig?.includeThoughts === false ||
+      requestConfig?.thinkingConfig?.thinkingBudget === 0
+    ) {
+      return false;
+    }
+    return !(this.config.getGlmClearThinking?.() ?? false);
   }
 
   getLastPromptTokenCount(): number {
