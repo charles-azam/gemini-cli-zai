@@ -91,7 +91,36 @@ This fork does not collide with Gemini CLI settings because it uses a separate
 config directory (`.gemini-cli-zai`) and distinct API key storage entries. The
 CLI binary is published as `gemini-cli-zai` to avoid command name collisions.
 
-### Install from build (GitHub Releases)
+### Quick Install (Recommended)
+
+Run this one-liner to install the latest build:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/charles-azam/gemini-cli-zai/main/scripts/install-release.sh | bash
+```
+
+Then start a new terminal or run:
+
+```bash
+source ~/.zshrc  # or ~/.bashrc for bash users
+gemini-cli-zai --version
+```
+
+The install script:
+
+- Downloads the latest release from GitHub
+- Installs to `~/.gemini-cli-zai`
+- Adds an alias to your shell config
+
+To update, simply run the install command again.
+
+### Install a specific version
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/charles-azam/gemini-cli-zai/main/scripts/install-release.sh | bash -s -- v1.0.0
+```
+
+### Manual Install
 
 1. Download the latest release archive:
 
@@ -107,15 +136,6 @@ tar -xzf gemini-cli-zai-bundle.tar.gz
 echo 'alias gemini-cli-zai="node $(pwd)/bundle/gemini.js"' >> ~/.zshrc
 source ~/.zshrc
 gemini-cli-zai --version
-```
-
-Alternative (useful for Docker/CI): run the install script to create a
-`gemini-cli-zai` executable in `/usr/local/bin`:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/charles-azam/gemini-cli-zai/main/scripts/install-release.sh -o /tmp/install-release.sh
-bash /tmp/install-release.sh
-rm /tmp/install-release.sh
 ```
 
 ### Install from source
