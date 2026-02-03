@@ -203,14 +203,15 @@ class WriteFileToolInvocation extends BaseToolInvocation<
     );
     const fileName = path.basename(this.resolvedPath);
 
-    const fileDiff = Diff.createPatch(
-      fileName,
-      originalContent, // Original content (empty if new file or unreadable)
-      correctedContent, // Content after potential correction
-      'Current',
-      'Proposed',
-      DEFAULT_DIFF_OPTIONS,
-    );
+    const fileDiff =
+      Diff.createPatch(
+        fileName,
+        originalContent, // Original content (empty if new file or unreadable)
+        correctedContent, // Content after potential correction
+        'Current',
+        'Proposed',
+        DEFAULT_DIFF_OPTIONS,
+      ) ?? '';
 
     const ideClient = await IdeClient.getInstance();
     const ideConfirmation =
@@ -326,14 +327,15 @@ class WriteFileToolInvocation extends BaseToolInvocation<
         ? '' // Or some indicator of unreadable content
         : originalContent;
 
-      const fileDiff = Diff.createPatch(
-        fileName,
-        currentContentForDiff,
-        fileContent,
-        'Original',
-        'Written',
-        DEFAULT_DIFF_OPTIONS,
-      );
+      const fileDiff =
+        Diff.createPatch(
+          fileName,
+          currentContentForDiff,
+          fileContent,
+          'Original',
+          'Written',
+          DEFAULT_DIFF_OPTIONS,
+        ) ?? '';
 
       const originallyProposedContent = ai_proposed_content || content;
       const diffStat = getDiffStat(
