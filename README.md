@@ -1,65 +1,74 @@
-# gemini-cli-zai
+# Gemini CLI ZAI -- Google Gemini CLI fork for GLM-4.7
 
-This is a fork of Gemini CLI that routes requests to Z.ai's GLM-4.7 endpoint and
-preserves Z.ai's extended thinking ("reasoning_content") across tool calls.
+A fork of [Google's Gemini CLI](https://github.com/google-gemini/gemini-cli) adapted to run **ZAI's GLM-4.7** model. Built for benchmarking agentic scaffoldings on [Terminal-Bench 2.0](https://github.com/laude-institute/harbor).
 
-## Why this fork
+**Benchmark results:** Scored **0.23** on Terminal-Bench using a GLM4.7 subscription (which might give worse results than paying for the full price of an API). See the article [full writeup](https://charlesazam.com/blog/) for how this compares to Codex (0.15), Claude Code (0.29), and Mistral Vibe (0.35) using the same model.
 
-- Use GLM-4.7 with the Gemini CLI interface and tooling.
-- Support Z.ai's interleaved thinking output and tool calling format.
-- Route web search tool calls through Z.ai when GLM auth is active.
+## Why this fork exists
 
-## How it is implemented
+I wanted to test whether the same model performs differently across coding agent scaffoldings. Gemini CLI has the widest array of built-in tools among the agents I tested — 14 tools, 3 specialized sub-agent types (plus user-definable ones), A2A protocol support, a four-tier hierarchical memory system, and a sophisticated model routing framework that dynamically classifies prompts to choose between flash and pro models. The codebase is a TypeScript/React monorepo that bundles in seconds, and the developer experience is genuinely pleasant — clean separation between the core engine, tools, and the Ink-based terminal UI makes it straightforward to fork and adapt. Despite all this sophistication, it scored below simpler agents. Whether that's because scaffolding complexity doesn't translate into benchmark performance, because these CLI agents are increasingly fine-tuned to their native model in ways that don't transfer well, or simply because of rough edges in my adaptation — I'm not sure. Probably a bit of all three.
 
-- Adds a GLM content generator that translates Gemini CLI requests into
-  OpenAI-style chat completion payloads for Z.ai.
-- Maps tools, tool choices, and function calls to the OpenAI-compatible schema.
-- Enables Z.ai thinking mode when thinking is configured, and preserves
-  `reasoning_content` by feeding it back into the next assistant turn.
-- Parses Z.ai usage metadata (including reasoning tokens) into Gemini CLI usage
-  stats.
-- Remaps the web search tool to Z.ai's web search in chat when using GLM auth.
+## What I changed
 
-Key implementation files:
+Gemini CLI uses Google's native API protocol, which is fundamentally different from the OpenAI-compatible format that Z.AI uses. This meant writing a full translation layer:
 
-- `packages/core/src/core/glmContentGenerator.ts`
-- `packages/core/src/core/contentGenerator.ts`
+- **812-line `GlmContentGenerator`** -- translates between Gemini CLI's internal representation and Z.AI's OpenAI-compatible chat completions endpoint
+- **Protocol translation** -- tool declarations, SSE stream parsing, finish reasons, usage metrics, and error types all had to be mapped between the two API formats
+- **Preserved Thinking** -- captures `reasoning_content` from GLM-4.7 and feeds it back across turns
+- **New `USE_GLM` auth type** -- auto-detects when `ZAI_API_KEY` is set
+- **Web search routing** -- `google_web_search` tool calls are routed through Z.AI when GLM auth is active (Z.AI's web search is free with the coding endpoint)
+- **106 new tests** for edge cases around non-thinking scenarios
 
-## Configuration
+**49 files changed** across two commits. The difficulty wasn't TypeScript -- it was the protocol gap between Google's API and OpenAI's. Tool calls, content parts, and streaming events are represented in fundamentally different ways.
 
-- Set `ZAI_API_KEY` to use GLM auth. The CLI will auto-select GLM when it is
-  set.
-- Optional endpoint override: `model.zai.endpoint` (takes precedence), or
-  `ZAI_API_BASE_URL` / `GLM_API_BASE_URL`.
-- Use model `glm-4.7` in settings or via `--model glm-4.7`.
-- Optional thinking behavior: `model.zai.clearThinking` to clear preserved
-  reasoning between turns (requires restart).
-- Optional thinking toggle: `model.zai.disableThinking` to request direct
-  answers without reasoning (requires restart).
-
-CLI overrides (no settings file needed):
+## Quick install
 
 ```bash
-gemini --model glm-4.7 \
-  --zai-endpoint https://api.z.ai/api/coding/paas/v4/chat/completions \
+curl -fsSL https://raw.githubusercontent.com/charles-azam/gemini-cli-zai/main/scripts/install-release.sh | bash
 ```
 
-Although not recommended you can use these options:
+Then open a new terminal or:
 
+```bash
+source ~/.zshrc  # or ~/.bashrc
+gemini-cli-zai --version
 ```
-  --zai-clear-thinking \ # Z.ai recommends to disable clear thinking
-  --zai-disable-thinking # Z.ai recommends to enable thinking
+
+### Install a specific version
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/charles-azam/gemini-cli-zai/main/scripts/install-release.sh | bash -s -- v1.0.0
 ```
 
-`--zai-model` is an alias for `--model`.
+### Install from source
 
-Note: Z.ai thinking mode is requested by default in this fork. Use
-`--zai-disable-thinking` or `model.zai.disableThinking` to turn it off. Gemini
-`thinkingConfig.includeThoughts` and `thinkingConfig.thinkingBudget: 0` are
-mapped to disable thinking for Z.ai requests (other thinkingConfig fields are
-not mapped).
+```bash
+git clone https://github.com/charles-azam/gemini-cli-zai.git
+cd gemini-cli-zai
+npm ci && npm run build && npm run bundle
+echo 'alias gemini-cli-zai="node /path/to/gemini-cli-zai/bundle/gemini.js"' >> ~/.zshrc
+```
 
-Example `settings.json`:
+## Usage
+
+```bash
+export ZAI_API_KEY="your_key"
+
+# Standard (thinking enabled by default)
+gemini-cli-zai --model glm-4.7
+
+# With explicit endpoint
+gemini-cli-zai --model glm-4.7 \
+  --zai-endpoint https://api.z.ai/api/coding/paas/v4/chat/completions
+
+# Disable thinking
+gemini-cli-zai --model glm-4.7 --zai-disable-thinking
+
+# Disable web search
+gemini-cli-zai --model glm-4.7 --no-search
+```
+
+### Settings file
 
 ```json
 {
@@ -73,92 +82,19 @@ Example `settings.json`:
 }
 ```
 
-Default endpoint:
+## Architecture notes
 
-- `https://api.z.ai/api/coding/paas/v4/chat/completions`
+Gemini CLI's architecture is notable for:
+- **Dual-history system** -- maintains a comprehensive history (every message for debugging) and a curated one (valid turns only, sent to the model)
+- **2,400-line edit system** with a 3-tier correction cascade (direct match, unescape heuristic, LLM-based fixer) that works around Gemini's over-escaping bug
+- **3 specialized sub-agent types** (plus user-definable ones) and an Agent-to-Agent (A2A) protocol for cross-agent communication
+- **Four-tier memory** -- global, extension, project, and JIT subdirectory-level context
+- **10-section dynamic system prompt** that adapts to tools, permissions, and project state
 
-## Web search
+This uses a separate config directory (`.gemini-cli-zai`) and binary name (`gemini-cli-zai`) to avoid conflicts with upstream Gemini CLI.
 
-When GLM auth is active, the `google_web_search` tool is routed through Z.ai's
-web search in chat and returns Z.ai sources in the tool output. When using
-Gemini auth, the existing Google Search integration is used instead.
+## Related
 
-To disable web search tools for a run, pass `--no-search`.
-
-## Installation
-
-This fork does not collide with Gemini CLI settings because it uses a separate
-config directory (`.gemini-cli-zai`) and distinct API key storage entries. The
-CLI binary is published as `gemini-cli-zai` to avoid command name collisions.
-
-### Quick Install (Recommended)
-
-Run this one-liner to install the latest build:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/charles-azam/gemini-cli-zai/main/scripts/install-release.sh | bash
-```
-
-Then start a new terminal or run:
-
-```bash
-source ~/.zshrc  # or ~/.bashrc for bash users
-gemini-cli-zai --version
-```
-
-The install script:
-
-- Downloads the latest release from GitHub
-- Installs to `~/.gemini-cli-zai`
-- Adds an alias to your shell config
-
-To update, simply run the install command again.
-
-### Install a specific version
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/charles-azam/gemini-cli-zai/main/scripts/install-release.sh | bash -s -- v1.0.0
-```
-
-### Manual Install
-
-1. Download the latest release archive:
-
-```bash
-curl -L -o gemini-cli-zai-bundle.tar.gz \
-  https://github.com/charles-azam/gemini-cli-zai/releases/latest/download/gemini-cli-zai-bundle.tar.gz
-```
-
-2. Extract and create an alias (use `.bashrc` if you use bash):
-
-```bash
-tar -xzf gemini-cli-zai-bundle.tar.gz
-echo 'alias gemini-cli-zai="node $(pwd)/bundle/gemini.js"' >> ~/.zshrc
-source ~/.zshrc
-gemini-cli-zai --version
-```
-
-### Install from source
-
-1. Clone the repo and install dependencies:
-
-```bash
-git clone https://github.com/charles-azam/gemini-cli-zai.git
-cd gemini-cli-zai
-npm ci
-```
-
-2. Build and bundle:
-
-```bash
-npm run build
-npm run bundle
-```
-
-3. Create an alias (use `.bashrc` if you use bash):
-
-```bash
-echo 'alias gemini-cli-zai="node /path/to/gemini-cli-zai/bundle/gemini.js"' >> ~/.zshrc
-source ~/.zshrc
-gemini-cli-zai --version
-```
+- [codex-zai](https://github.com/charles-azam/codex-zai) -- Codex fork (scored 0.15)
+- [mistral-vibe-zai](https://github.com/charles-azam/mistral-vibe-zai) -- Mistral Vibe fork (scored 0.35)
+- [Upstream Gemini CLI](https://github.com/google-gemini/gemini-cli) -- original project
