@@ -89,7 +89,7 @@ interface ZaiWebSearchResponse {
 
 const DEFAULT_ZAI_CHAT_ENDPOINT =
   'https://api.z.ai/api/coding/paas/v4/chat/completions';
-const DEFAULT_GLM_MODEL = 'glm-4.7';
+const DEFAULT_GLM_MODEL = 'glm-5';
 
 function normalizeZaiContent(
   content: string | Array<{ type: string; text?: string }> | null | undefined,

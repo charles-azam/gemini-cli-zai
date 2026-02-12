@@ -178,6 +178,6 @@ describe('ApiAuthDialog', () => {
     );
 
     expect(lastFrame()).toContain('GLM API Key');
-    expect(lastFrame()).toContain('https://docs.z.ai/guides/llm/glm-4.7');
+    expect(lastFrame()).toContain('https://docs.z.ai/guides/llm/glm-5');
   });
 });

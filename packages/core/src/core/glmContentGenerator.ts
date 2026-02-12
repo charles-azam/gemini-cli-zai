@@ -28,7 +28,7 @@ import { debugLogger } from '../utils/debugLogger.js';
 const DEFAULT_GLM_ENDPOINT =
   'https://api.z.ai/api/coding/paas/v4/chat/completions';
 
-const DEFAULT_GLM_MODEL = 'glm-4.7';
+const DEFAULT_GLM_MODEL = 'glm-5';
 
 function mapModelName(model: string | undefined): string {
   if (!model) {

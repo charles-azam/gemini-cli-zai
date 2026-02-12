@@ -119,7 +119,7 @@ export function ApiAuthDialog({
           You can get an API key from{' '}
           <Text color={theme.text.link}>
             {isGlm
-              ? 'https://docs.z.ai/guides/llm/glm-4.7'
+              ? 'https://docs.z.ai/guides/llm/glm-5'
               : 'https://aistudio.google.com/app/apikey'}
           </Text>
         </Text>

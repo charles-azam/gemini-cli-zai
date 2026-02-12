@@ -1,6 +1,6 @@
-# Gemini CLI ZAI -- Google Gemini CLI fork for GLM-4.7
+# Gemini CLI ZAI -- Google Gemini CLI fork for GLM-5
 
-A fork of [Google's Gemini CLI](https://github.com/google-gemini/gemini-cli) adapted to run **ZAI's GLM-4.7** model. Built for benchmarking agentic scaffoldings on [Terminal-Bench 2.0](https://github.com/laude-institute/harbor).
+A fork of [Google's Gemini CLI](https://github.com/google-gemini/gemini-cli) adapted to run **ZAI's GLM-5** model (GLM-4.7 also supported). Built for benchmarking agentic scaffoldings on [Terminal-Bench 2.0](https://github.com/laude-institute/harbor).
 
 **Benchmark results:** Scored **0.23** on Terminal-Bench using a GLM4.7 subscription (which might give worse results than paying for the full price of an API). See the article [full writeup](https://charlesazam.com/blog/) for how this compares to Codex (0.15), Claude Code (0.29), and Mistral Vibe (0.35) using the same model.
 
@@ -14,7 +14,7 @@ Gemini CLI uses Google's native API protocol, which is fundamentally different f
 
 - **812-line `GlmContentGenerator`** -- translates between Gemini CLI's internal representation and Z.AI's OpenAI-compatible chat completions endpoint
 - **Protocol translation** -- tool declarations, SSE stream parsing, finish reasons, usage metrics, and error types all had to be mapped between the two API formats
-- **Preserved Thinking** -- captures `reasoning_content` from GLM-4.7 and feeds it back across turns
+- **Preserved Thinking** -- captures `reasoning_content` from GLM-5 and feeds it back across turns
 - **New `USE_GLM` auth type** -- auto-detects when `ZAI_API_KEY` is set
 - **Web search routing** -- `google_web_search` tool calls are routed through Z.AI when GLM auth is active (Z.AI's web search is free with the coding endpoint)
 - **106 new tests** for edge cases around non-thinking scenarios
@@ -54,18 +54,21 @@ echo 'alias gemini-cli-zai="node /path/to/gemini-cli-zai/bundle/gemini.js"' >> ~
 ```bash
 export ZAI_API_KEY="your_key"
 
-# Standard (thinking enabled by default)
+# Default: GLM-5 with thinking enabled
+gemini-cli-zai
+
+# Use GLM-4.7 instead
 gemini-cli-zai --model glm-4.7
 
 # With explicit endpoint
-gemini-cli-zai --model glm-4.7 \
+gemini-cli-zai --model glm-5 \
   --zai-endpoint https://api.z.ai/api/coding/paas/v4/chat/completions
 
 # Disable thinking
-gemini-cli-zai --model glm-4.7 --zai-disable-thinking
+gemini-cli-zai --zai-disable-thinking
 
 # Disable web search
-gemini-cli-zai --model glm-4.7 --no-search
+gemini-cli-zai --no-search
 ```
 
 ### Settings file

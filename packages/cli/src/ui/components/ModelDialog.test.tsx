@@ -152,18 +152,19 @@ describe('<ModelDialog />', () => {
     mockGetContentGeneratorConfig.mockReturnValue({
       authType: AuthType.USE_GLM,
     } as ReturnType<Config['getContentGeneratorConfig']>);
-    mockGetModel.mockReturnValue('glm-4.7');
+    mockGetModel.mockReturnValue('glm-5');
     const { lastFrame, stdin } = renderComponent();
 
-    expect(lastFrame()).toContain('glm-4.7');
+    expect(lastFrame()).toContain('glm-5');
     expect(lastFrame()).not.toContain('Auto (Gemini 2.5)');
 
-    // Move to Manual and ensure GLM model is listed
+    // Move to Manual and ensure GLM models are listed
     stdin.write('\u001B[B');
     await waitForUpdate();
     stdin.write('\r');
     await waitForUpdate();
 
+    expect(lastFrame()).toContain('glm-5');
     expect(lastFrame()).toContain('glm-4.7');
     expect(lastFrame()).not.toContain(DEFAULT_GEMINI_MODEL);
   });
@@ -172,13 +173,13 @@ describe('<ModelDialog />', () => {
     mockGetContentGeneratorConfig.mockReturnValue({
       authType: AuthType.USE_GLM,
     } as ReturnType<Config['getContentGeneratorConfig']>);
-    mockGetModel.mockReturnValue('glm-4.7');
+    mockGetModel.mockReturnValue('glm-5');
     const { stdin } = renderComponent();
 
     stdin.write('\r');
     await waitForUpdate();
 
-    expect(mockSetModel).toHaveBeenCalledWith('glm-4.7', true);
+    expect(mockSetModel).toHaveBeenCalledWith('glm-5', true);
     expect(mockOnClose).toHaveBeenCalled();
   });
 

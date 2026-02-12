@@ -38,7 +38,7 @@ export const GlmPrivacyNotice = ({ onExit }: GlmPrivacyNoticeProps) => {
       <Newline />
       <Text color={theme.text.primary}>
         <Text color={theme.text.link}>[1]</Text>{' '}
-        https://docs.z.ai/guides/llm/glm-4.7
+        https://docs.z.ai/guides/llm/glm-5
       </Text>
       <Text color={theme.text.primary}>
         <Text color={theme.status.error}>[2]</Text> https://z.ai/terms

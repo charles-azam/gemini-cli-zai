@@ -692,7 +692,7 @@ export async function loadCliConfig(
     settings.security?.auth?.selectedType === AuthType.USE_GLM ||
     (!settings.security?.auth?.selectedType && process.env['ZAI_API_KEY']);
   const defaultModel = isGlmAuth
-    ? 'glm-4.7'
+    ? 'glm-5'
     : settings.general?.previewFeatures
       ? PREVIEW_GEMINI_MODEL_AUTO
       : DEFAULT_GEMINI_MODEL_AUTO;
