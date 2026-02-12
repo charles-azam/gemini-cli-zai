@@ -597,7 +597,7 @@ describe('GeminiChat', () => {
       );
 
       const stream = await chat.sendMessageStream(
-        { model: 'glm-4.7' },
+        { model: 'glm-5' },
         'test message',
         'prompt-id-glm-thoughts',
         new AbortController().signal,
@@ -624,7 +624,7 @@ describe('GeminiChat', () => {
       vi.mocked(
         mockConfig.modelConfigService.getResolvedConfig,
       ).mockReturnValue(
-        makeResolvedModelConfig('glm-4.7', {
+        makeResolvedModelConfig('glm-5', {
           thinkingConfig: {
             includeThoughts: false,
             thinkingBudget: 0,
@@ -654,7 +654,7 @@ describe('GeminiChat', () => {
       );
 
       const stream = await chat.sendMessageStream(
-        { model: 'glm-4.7' },
+        { model: 'glm-5' },
         'test message',
         'prompt-id-glm-no-thoughts',
         new AbortController().signal,

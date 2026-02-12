@@ -165,7 +165,6 @@ describe('<ModelDialog />', () => {
     await waitForUpdate();
 
     expect(lastFrame()).toContain('glm-5');
-    expect(lastFrame()).toContain('glm-4.7');
     expect(lastFrame()).not.toContain(DEFAULT_GEMINI_MODEL);
   });
 

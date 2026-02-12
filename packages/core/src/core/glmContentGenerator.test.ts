@@ -30,7 +30,7 @@ describe('GlmContentGenerator', () => {
       ok: true,
       json: async () => ({
         id: 'resp-1',
-        model: 'glm-4.7',
+        model: 'glm-5',
         usage: {
           prompt_tokens: 10,
           completion_tokens: 5,
@@ -66,7 +66,7 @@ describe('GlmContentGenerator', () => {
 
     const generator = new GlmContentGenerator(DEFAULT_OPTIONS);
     const response = await generator.generateContent({
-      model: 'glm-4.7',
+      model: 'glm-5',
       contents: [],
       config: {},
     });
@@ -92,13 +92,13 @@ describe('GlmContentGenerator', () => {
       start(controller) {
         controller.enqueue(
           textEncoder.encode(
-            'data: {"id":"chunk","model":"glm-4.7","choices":[{"delta":{"content":[{"type":"text","text":"Hi"}]},"finish_reason":null}]}' +
+            'data: {"id":"chunk","model":"glm-5","choices":[{"delta":{"content":[{"type":"text","text":"Hi"}]},"finish_reason":null}]}' +
               '\n\n',
           ),
         );
         controller.enqueue(
           textEncoder.encode(
-            'data: {"id":"chunk","model":"glm-4.7","choices":[{"delta":{"tool_calls":[{"id":"call","function":{"name":"plan","arguments":"{\\"x\\":1}"}}]},"finish_reason":"stop"}]}' +
+            'data: {"id":"chunk","model":"glm-5","choices":[{"delta":{"tool_calls":[{"id":"call","function":{"name":"plan","arguments":"{\\"x\\":1}"}}]},"finish_reason":"stop"}]}' +
               '\n\n',
           ),
         );
@@ -112,7 +112,7 @@ describe('GlmContentGenerator', () => {
 
     const generator = new GlmContentGenerator(DEFAULT_OPTIONS);
     const streamIterator = await generator.generateContentStream({
-      model: 'glm-4.7',
+      model: 'glm-5',
       contents: [],
       config: {},
     });
@@ -152,7 +152,7 @@ describe('GlmContentGenerator', () => {
       thinkingEnabled: false,
     });
     await generator.generateContent({
-      model: 'glm-4.7',
+      model: 'glm-5',
       contents: [],
       config: {},
     });
@@ -185,7 +185,7 @@ describe('GlmContentGenerator', () => {
 
     const generator = new GlmContentGenerator(DEFAULT_OPTIONS);
     await generator.generateContent({
-      model: 'glm-4.7',
+      model: 'glm-5',
       contents: [],
       config: {
         thinkingConfig: {

@@ -30,7 +30,7 @@ interface ModelDialogProps {
   onClose: () => void;
 }
 
-const GLM_DEFAULT_MODELS = ['glm-5', 'glm-4.7'];
+const GLM_DEFAULT_MODELS = ['glm-5'];
 
 export function ModelDialog({ onClose }: ModelDialogProps): React.JSX.Element {
   const config = useContext(ConfigContext);
